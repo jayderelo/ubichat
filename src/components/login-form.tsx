@@ -8,16 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "#/components/ui/card.tsx";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-} from "#/components/ui/field.tsx";
+import { Field, FieldDescription, FieldGroup } from "#/components/ui/field.tsx";
 import { authClient } from "#/lib/auth-client.ts";
 
 type OAuthProvider = "github" | "google";
 
-const callbackURL = "/chats";
+const callbackURL = "/";
 const errorCallbackURL = "/login";
 
 export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {

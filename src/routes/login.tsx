@@ -7,7 +7,7 @@ export const Route = createFileRoute("/login")({
     const session = await getSession();
 
     if (session) {
-      throw redirect({ to: "/chats" });
+      throw redirect({ to: "/" });
     }
   },
   component: Login,
