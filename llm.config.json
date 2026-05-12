@@ -1,0 +1,50 @@
+{
+  "defaultModelId": "gpt-5.4-mini",
+  "models": [
+    {
+      "id": "gpt-5.4-mini",
+      "displayName": "GPT-5.4 Mini",
+      "provider": "azure-openai-responses",
+      "baseURL": "https://jayve-mos393nj-swedencentral.cognitiveservices.azure.com/openai",
+      "apiVersion": "2025-04-01-preview",
+      "model": "gpt-5.4-mini",
+      "capabilities": {
+        "chatCompletions": false,
+        "reasoning": true,
+        "responses": true,
+        "tools": true,
+        "vision": false
+      }
+    },
+    {
+      "id": "kimi-k2.6",
+      "displayName": "Kimi K2.6",
+      "provider": "azure-foundry-chat",
+      "baseURL": "https://jayve-mos393nj-swedencentral.services.ai.azure.com/models",
+      "apiVersion": "2024-05-01-preview",
+      "model": "Kimi-K2.6",
+      "capabilities": {
+        "chatCompletions": true,
+        "reasoning": false,
+        "responses": false,
+        "tools": false,
+        "vision": false
+      }
+    },
+    {
+      "id": "deepseek-v4-flash",
+      "displayName": "DeepSeek V4 Flash",
+      "provider": "azure-foundry-chat",
+      "baseURL": "https://jayve-mos393nj-swedencentral.services.ai.azure.com/models",
+      "apiVersion": "2024-05-01-preview",
+      "model": "DeepSeek-V4-Flash",
+      "capabilities": {
+        "chatCompletions": true,
+        "reasoning": true,
+        "responses": false,
+        "tools": false,
+        "vision": false
+      }
+    }
+  ]
+}

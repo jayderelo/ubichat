@@ -13,6 +13,8 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as ApiLlmModelsRouteImport } from './routes/api/llm-models'
+import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const LoginRoute = LoginRouteImport.update({
@@ -34,6 +36,16 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const ApiLlmModelsRoute = ApiLlmModelsRouteImport.update({
+  id: '/api/llm-models',
+  path: '/api/llm-models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiChatRoute = ApiChatRouteImport.update({
+  id: '/api/chat',
+  path: '/api/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -44,11 +56,15 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/llm-models': typeof ApiLlmModelsRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/llm-models': typeof ApiLlmModelsRoute
   '/': typeof AuthedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
@@ -57,19 +73,35 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/api/chat': typeof ApiChatRoute
+  '/api/llm-models': typeof ApiLlmModelsRoute
   '/_authed/': typeof AuthedIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chats' | '/login' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/chats'
+    | '/login'
+    | '/api/chat'
+    | '/api/llm-models'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/chats' | '/login' | '/' | '/api/auth/$'
+  to:
+    | '/chats'
+    | '/login'
+    | '/api/chat'
+    | '/api/llm-models'
+    | '/'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/_authed'
     | '/chats'
     | '/login'
+    | '/api/chat'
+    | '/api/llm-models'
     | '/_authed/'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
@@ -78,6 +110,8 @@ export interface RootRouteChildren {
   AuthedRoute: typeof AuthedRouteWithChildren
   ChatsRoute: typeof ChatsRoute
   LoginRoute: typeof LoginRoute
+  ApiChatRoute: typeof ApiChatRoute
+  ApiLlmModelsRoute: typeof ApiLlmModelsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -111,6 +145,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/api/llm-models': {
+      id: '/api/llm-models'
+      path: '/api/llm-models'
+      fullPath: '/api/llm-models'
+      preLoaderRoute: typeof ApiLlmModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat': {
+      id: '/api/chat'
+      path: '/api/chat'
+      fullPath: '/api/chat'
+      preLoaderRoute: typeof ApiChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -136,6 +184,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthedRoute: AuthedRouteWithChildren,
   ChatsRoute: ChatsRoute,
   LoginRoute: LoginRoute,
+  ApiChatRoute: ApiChatRoute,
+  ApiLlmModelsRoute: ApiLlmModelsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
