@@ -1,5 +1,6 @@
 {
   "defaultModelId": "gpt-5.4-mini",
+  "titleModelId": "deepseek-v4-flash",
   "models": [
     {
       "id": "gpt-5.4-mini",

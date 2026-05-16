@@ -3,6 +3,7 @@ import { parseLlmConfig } from "#/lib/llm-config.ts";
 
 const validConfig = {
   defaultModelId: "gpt-5.4-mini",
+  titleModelId: "deepseek-v4-flash",
   models: [
     {
       id: "gpt-5.4-mini",
@@ -34,6 +35,21 @@ const validConfig = {
         vision: false,
       },
     },
+    {
+      id: "deepseek-v4-flash",
+      displayName: "DeepSeek V4 Flash",
+      provider: "azure-foundry-chat",
+      baseURL: "https://example.services.ai.azure.com/models",
+      apiVersion: "2024-05-01-preview",
+      model: "DeepSeek-V4-Flash",
+      capabilities: {
+        chatCompletions: true,
+        reasoning: true,
+        responses: false,
+        tools: false,
+        vision: false,
+      },
+    },
   ],
 };
 
@@ -49,6 +65,15 @@ describe("parseLlmConfig", () => {
         defaultModelId: "missing-model",
       }),
     ).toThrow("defaultModelId must match a configured model id");
+  });
+
+  it("rejects an unknown title model id", () => {
+    expect(() =>
+      parseLlmConfig({
+        ...validConfig,
+        titleModelId: "missing-model",
+      }),
+    ).toThrow("titleModelId must match a configured model id");
   });
 
   it("rejects duplicate model ids", () => {

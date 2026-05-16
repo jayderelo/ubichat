@@ -27,6 +27,7 @@ const modelConfigSchema = z.object({
 const llmConfigSchema = z
   .object({
     defaultModelId: z.string().min(1),
+    titleModelId: z.string().min(1),
     models: z.array(modelConfigSchema).min(1),
   })
   .superRefine((config, ctx) => {
@@ -48,6 +49,14 @@ const llmConfigSchema = z
         code: "custom",
         message: "defaultModelId must match a configured model id",
         path: ["defaultModelId"],
+      });
+    }
+
+    if (!ids.has(config.titleModelId)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "titleModelId must match a configured model id",
+        path: ["titleModelId"],
       });
     }
   });
@@ -89,6 +98,11 @@ export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
 export async function getLlmModelConfig(modelId: string) {
   const config = await getLlmConfig();
   return config.models.find((model) => model.id === modelId);
+}
+
+export async function getTitleLlmModelConfig() {
+  const config = await getLlmConfig();
+  return config.models.find((model) => model.id === config.titleModelId);
 }
 
 function getAzureFoundryKey() {
@@ -133,6 +147,7 @@ export function createLanguageModel(config: LlmModelConfig): LanguageModel {
     headers: { "api-key": apiKey },
     name: "azure-foundry",
     queryParams: { "api-version": config.apiVersion },
+    supportsStructuredOutputs: true,
   });
 
   return foundry.chatModel(config.model);
