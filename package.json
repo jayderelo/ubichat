@@ -6,9 +6,9 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "npx dotenvx run -- vite dev --port 3000",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "npx dotenvx run -- vite preview",
     "prepare": "simple-git-hooks",
     "test": "vitest run",
     "lint": "oxlint",
@@ -67,6 +67,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@dotenvx/dotenvx": "^1.66.0",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@testing-library/dom": "^10.4.1",
