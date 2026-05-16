@@ -1,13 +1,8 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
 import * as schema from "../../database/schema/auth-schema";
-
-const db = drizzle(new Pool({ connectionString: process.env.DATABASE_URL }), {
-  schema,
-});
+import { db } from "#/lib/db.ts";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
