@@ -15,6 +15,7 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as AuthedChatsChatIdRouteImport } from './routes/_authed/chats.$chatId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -45,12 +46,18 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedChatsChatIdRoute = AuthedChatsChatIdRouteImport.update({
+  id: '/chats/$chatId',
+  path: '/chats/$chatId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
+  '/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -58,6 +65,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
   '/': typeof AuthedIndexRoute
+  '/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -67,13 +75,20 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/api/chat': typeof ApiChatRoute
   '/_authed/': typeof AuthedIndexRoute
+  '/_authed/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/chats' | '/login' | '/api/chat' | '/api/auth/$'
+  fullPaths:
+    | '/'
+    | '/chats'
+    | '/login'
+    | '/api/chat'
+    | '/chats/$chatId'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/chats' | '/login' | '/api/chat' | '/' | '/api/auth/$'
+  to: '/chats' | '/login' | '/api/chat' | '/' | '/chats/$chatId' | '/api/auth/$'
   id:
     | '__root__'
     | '/_authed'
@@ -81,6 +96,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/api/chat'
     | '/_authed/'
+    | '/_authed/chats/$chatId'
     | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
@@ -136,15 +152,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/chats/$chatId': {
+      id: '/_authed/chats/$chatId'
+      path: '/chats/$chatId'
+      fullPath: '/chats/$chatId'
+      preLoaderRoute: typeof AuthedChatsChatIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedChatsChatIdRoute: typeof AuthedChatsChatIdRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedChatsChatIdRoute: AuthedChatsChatIdRoute,
 }
 
 const AuthedRouteWithChildren =

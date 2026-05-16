@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { chat, chatMessage, type Chat } from "../../database/schema/app-schema";
 import { db } from "#/lib/db.ts";
@@ -31,6 +31,8 @@ type ReplaceChatMessagesInput = ChatIdInput & {
 };
 
 type AppendChatMessageInput = ChatIdInput & ChatMessageInput;
+
+type CreateChatWithInitialMessageInput = CreateChatInput & ChatMessageInput;
 
 type ChatUpdateValues = {
   title?: string | null;
@@ -87,8 +89,45 @@ export async function createChat(input: CreateChatInput) {
   return createdChat;
 }
 
+export async function createChatWithInitialMessage({
+  message,
+  modelId,
+  title,
+  userId,
+}: CreateChatWithInitialMessageInput) {
+  return await db.transaction(async (tx) => {
+    const [createdChat] = await tx
+      .insert(chat)
+      .values({
+        modelId,
+        title,
+        userId,
+      })
+      .returning();
+
+    if (!createdChat) {
+      throw new Error("Failed to create chat.");
+    }
+
+    const [savedMessage] = await tx
+      .insert(chatMessage)
+      .values(toChatMessageRow(createdChat.id, { message, modelId }, 0))
+      .returning();
+
+    if (!savedMessage) {
+      throw new Error("Failed to create initial chat message.");
+    }
+
+    return { chat: createdChat, message: savedMessage };
+  });
+}
+
 export async function listChatsByUser(userId: string) {
-  return await db.select().from(chat).where(eq(chat.userId, userId)).orderBy(desc(chat.updatedAt));
+  return await db
+    .select()
+    .from(chat)
+    .where(and(eq(chat.userId, userId), isNull(chat.archivedAt)))
+    .orderBy(desc(chat.updatedAt));
 }
 
 export async function getChatForUser({ chatId, userId }: ChatIdInput) {

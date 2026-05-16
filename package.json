@@ -6,17 +6,18 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "npx dotenvx run -- vite dev --port 3000",
+    "dev": "dotenvx run -- vite dev --port 3000",
     "build": "vite build",
-    "preview": "npx dotenvx run -- vite preview",
+    "preview": "dotenvx run -- vite preview",
     "prepare": "simple-git-hooks",
     "test": "vitest run",
+    "typecheck": "tsc",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "db:push": "npx drizzle-kit push",
-    "db:generate": "npx drizzle-kit generate"
+    "db:push": "dotenvx run -- drizzle-kit push",
+    "db:generate": "dotenvx run -- drizzle-kit generate"
   },
   "dependencies": {
     "@ai-sdk/azure": "^3.0.64",

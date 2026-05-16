@@ -8,6 +8,7 @@ import {
 import { Separator } from "#/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
 import { getSession } from "#/lib/auth-functions.ts";
+import { loadAuthedLayoutData } from "#/lib/chat-functions.ts";
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authed")({
@@ -18,13 +19,18 @@ export const Route = createFileRoute("/_authed")({
       throw redirect({ to: "/login" });
     }
   },
+  loader: async () => {
+    return await loadAuthedLayoutData();
+  },
   component: AuthedLayout,
 });
 
 function AuthedLayout() {
+  const { chats, user } = Route.useLoaderData();
+
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <AppSidebar chats={chats} user={user} />
       <SidebarInset className="min-h-svh">
         <header className="flex h-16 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
           <div className="flex min-w-0 items-center gap-2 px-4">
