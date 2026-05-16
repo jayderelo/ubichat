@@ -20,53 +20,41 @@ import {
   PromptInputTools,
   type PromptInputMessage,
 } from "#/components/ai-elements/prompt-input";
+import { getPublicLlmConfig } from "#/lib/llm-config.ts";
 import { createFileRoute } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 import { PaperclipIcon, SparklesIcon, TriangleAlertIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-export const Route = createFileRoute("/_authed/")({ component: Home });
+const loadPublicLlmConfig = createServerFn({ method: "GET" }).handler(async () => {
+  return await getPublicLlmConfig();
+});
+
+export const Route = createFileRoute("/_authed/")({
+  loader: async () => {
+    try {
+      return {
+        llmConfig: await loadPublicLlmConfig(),
+        modelsError: null,
+      };
+    } catch {
+      return {
+        llmConfig: null,
+        modelsError: "Model configuration could not be loaded.",
+      };
+    }
+  },
+  component: Home,
+});
 
 function Home() {
-  const [llmConfig, setLlmConfig] = useState<PublicLlmConfig | null>(null);
-  const [selectedModelId, setSelectedModelId] = useState("");
-  const [modelsError, setModelsError] = useState<string | null>(null);
+  const { llmConfig, modelsError } = Route.useLoaderData();
+  const [selectedModelId, setSelectedModelId] = useState(llmConfig?.defaultModelId ?? "");
   const { error, messages, sendMessage, status, stop } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
-
-  useEffect(() => {
-    let ignore = false;
-
-    async function loadModels() {
-      try {
-        const response = await fetch("/api/llm-models");
-
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-
-        const nextConfig = (await response.json()) as PublicLlmConfig;
-
-        if (!ignore) {
-          setLlmConfig(nextConfig);
-          setSelectedModelId((current) => current || nextConfig.defaultModelId);
-        }
-      } catch {
-        if (!ignore) {
-          setModelsError("Model configuration could not be loaded.");
-        }
-      }
-    }
-
-    void loadModels();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   async function handleSubmit(message: PromptInputMessage) {
     const text = message.text.trim();
