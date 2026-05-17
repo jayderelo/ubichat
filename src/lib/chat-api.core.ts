@@ -1,5 +1,6 @@
-import type { LanguageModel, ModelMessage, UIMessage } from "ai";
+import type { LanguageModel, LanguageModelUsage, ModelMessage, UIMessage } from "ai";
 import { z } from "zod";
+import type { LlmModelConfig } from "#/lib/llm-config.ts";
 
 export const chatRequestSchema = z.object({
   chatId: z.uuid({ version: "v7" }),
@@ -13,28 +14,64 @@ type SessionLike = {
   };
 };
 
-export type ChatApiDeps<ModelConfig = unknown> = {
+type UsageReservation =
+  | {
+      call: { id: string };
+      ok: true;
+    }
+  | {
+      availableCredits: number;
+      ok: false;
+      reservedCredits: number;
+    };
+
+export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
+  assertTextOnlyMessages: (messages: UIMessage[]) => void;
+  assertWithinModelInputLimit: (messages: UIMessage[], modelConfig: ModelConfig) => void;
   authGetSession: (headers: Headers) => Promise<SessionLike | null>;
+  chargeReservedUsage: (input: { callId: string; error?: string }) => Promise<unknown>;
   convertToModelMessages: (messages: UIMessage[]) => Promise<ModelMessage[]>;
   createLanguageModel: (config: ModelConfig) => LanguageModel;
+  estimateInputTokens: (messages: UIMessage[]) => number;
+  finalizeChatUsageAndMessages: (input: {
+    callId: string;
+    chatId: string;
+    finishReason?: string;
+    messages: UIMessage[];
+    modelConfig: ModelConfig;
+    modelId: string;
+    usage: LanguageModelUsage;
+    userId: string;
+  }) => Promise<unknown>;
   getChatForUser: (input: { chatId: string; userId: string }) => Promise<unknown | null>;
   getLlmConfig: () => Promise<{ defaultModelId: string }>;
   getLlmModelConfig: (modelId: string) => Promise<ModelConfig | undefined>;
-  replaceChatMessages: (input: {
+  listChatMessages: (input: { chatId: string; userId: string }) => Promise<UIMessage[] | null>;
+  markProviderStarted: (callId: string) => Promise<unknown>;
+  releaseUsage: (input: { callId: string; error?: string }) => Promise<unknown>;
+  reserveUsage: (input: {
     chatId: string;
-    messages: UIMessage[];
-    modelId: string;
+    estimatedInputTokens: number;
+    kind: "chat";
+    modelConfig: ModelConfig;
     userId: string;
-  }) => Promise<unknown>;
+  }) => Promise<UsageReservation>;
   streamText: (input: {
+    experimental_onStepStart: () => Promise<void>;
+    maxOutputTokens: number;
+    maxRetries: number;
     messages: ModelMessage[];
     model: LanguageModel;
+    onAbort: () => Promise<void>;
+    onError: (event: { error: unknown }) => Promise<void>;
     system: string;
   }) => {
+    finishReason: PromiseLike<string | undefined>;
     toUIMessageStreamResponse: (options: {
       onFinish: (event: { messages: UIMessage[] }) => Promise<void>;
       originalMessages: UIMessage[];
     }) => Response;
+    totalUsage: PromiseLike<LanguageModelUsage>;
   };
   validateUIMessages: (input: { messages: unknown }) => Promise<UIMessage[]>;
 };
@@ -198,7 +235,38 @@ Provide answers that are:
 - transparent about uncertainty
 `.trim();
 
-export function createChatApiHandler<ModelConfig>(deps: ChatApiDeps<ModelConfig>) {
+export function buildAuthoritativeMessages({
+  clientMessages,
+  storedMessages,
+}: {
+  clientMessages: UIMessage[];
+  storedMessages: UIMessage[];
+}) {
+  const storedLastMessage = storedMessages.at(-1);
+
+  if (storedLastMessage?.role === "user") {
+    return storedMessages;
+  }
+
+  const storedMessageIds = new Set(storedMessages.map((message) => message.id));
+  const nextMessage = clientMessages.findLast(
+    (message) => message.role === "user" && !storedMessageIds.has(message.id),
+  );
+
+  if (!nextMessage) {
+    return null;
+  }
+
+  return [...storedMessages, nextMessage];
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
+
+export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
+  deps: ChatApiDeps<ModelConfig>,
+) {
   return async function handleChatPost(request: Request) {
     const session = await deps.authGetSession(request.headers);
 
@@ -245,20 +313,91 @@ export function createChatApiHandler<ModelConfig>(deps: ChatApiDeps<ModelConfig>
       return Response.json({ error: "Invalid messages" }, { status: 400 });
     }
 
-    const modelMessages = await deps.convertToModelMessages(messages);
-    const result = deps.streamText({
-      messages: modelMessages,
-      model: deps.createLanguageModel(modelConfig),
-      system: SYSTEM_PROMPT,
+    const storedMessages = await deps.listChatMessages({
+      chatId: parsedBody.data.chatId,
+      userId: session.user.id,
     });
 
+    if (!storedMessages) {
+      return Response.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    const authoritativeMessages = buildAuthoritativeMessages({
+      clientMessages: messages,
+      storedMessages,
+    });
+
+    if (!authoritativeMessages) {
+      return Response.json({ error: "Message history does not match saved chat" }, { status: 409 });
+    }
+
+    try {
+      deps.assertTextOnlyMessages(authoritativeMessages);
+      deps.assertWithinModelInputLimit(authoritativeMessages, modelConfig);
+    } catch (caughtError) {
+      return Response.json({ error: errorMessage(caughtError) }, { status: 400 });
+    }
+
+    const reservation = await deps.reserveUsage({
+      chatId: parsedBody.data.chatId,
+      estimatedInputTokens: deps.estimateInputTokens(authoritativeMessages),
+      kind: "chat",
+      modelConfig,
+      userId: session.user.id,
+    });
+
+    if (!reservation.ok) {
+      return Response.json(
+        {
+          availableCredits: reservation.availableCredits,
+          error: "Daily token limit exceeded",
+          requiredCredits: reservation.reservedCredits,
+        },
+        { status: 429 },
+      );
+    }
+
+    let result: ReturnType<typeof deps.streamText>;
+
+    try {
+      result = deps.streamText({
+        experimental_onStepStart: async () => {
+          await deps.markProviderStarted(reservation.call.id);
+        },
+        maxOutputTokens: modelConfig.usage.maxOutputTokens,
+        maxRetries: 0,
+        messages: await deps.convertToModelMessages(authoritativeMessages),
+        model: deps.createLanguageModel(modelConfig),
+        onAbort: async () => {
+          await deps.chargeReservedUsage({
+            callId: reservation.call.id,
+            error: "Stream aborted after provider start.",
+          });
+        },
+        onError: async ({ error }) => {
+          await deps.chargeReservedUsage({
+            callId: reservation.call.id,
+            error: errorMessage(error),
+          });
+        },
+        system: SYSTEM_PROMPT,
+      });
+    } catch (caughtError) {
+      await deps.releaseUsage({ callId: reservation.call.id, error: errorMessage(caughtError) });
+      throw caughtError;
+    }
+
     return result.toUIMessageStreamResponse({
-      originalMessages: messages,
+      originalMessages: authoritativeMessages,
       onFinish: async ({ messages: finishedMessages }) => {
-        await deps.replaceChatMessages({
+        await deps.finalizeChatUsageAndMessages({
+          callId: reservation.call.id,
           chatId: parsedBody.data.chatId,
+          finishReason: await result.finishReason,
           messages: finishedMessages,
+          modelConfig,
           modelId,
+          usage: await result.totalUsage,
           userId: session.user.id,
         });
       },

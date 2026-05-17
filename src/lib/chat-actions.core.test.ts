@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createChatActionsCore, type ChatRecord, type SessionLike } from "#/lib/chat-actions.core.ts";
+import {
+  createChatActionsCore,
+  type ChatRecord,
+  type SessionLike,
+} from "#/lib/chat-actions.core.ts";
 import {
   chatId,
   createChatRecord,
@@ -19,9 +23,11 @@ function createDeps() {
     generateId: vi.fn(() => "generated-message-id"),
     getChatForUser: vi.fn<() => Promise<ChatRecord | null>>(async () => createChatRecord()),
     getLlmConfig: vi.fn(async () => ({ defaultModelId: "model-default" })),
-    getLlmModelConfig: vi.fn<(modelId: string) => Promise<unknown | undefined>>(async (modelId) => ({
-      id: modelId,
-    })),
+    getLlmModelConfig: vi.fn<(modelId: string) => Promise<unknown | undefined>>(
+      async (modelId) => ({
+        id: modelId,
+      }),
+    ),
     getPublicLlmConfig: vi.fn(async () => createPublicLlmConfig()),
     listChatMessages: vi.fn(async () => [createTextMessage({ text: "First prompt" })]),
     listChatsByUser: vi.fn(async () => [createChatRecord({ title: null })]),
@@ -66,13 +72,11 @@ describe("chat actions core", () => {
   it("creates a chat from the first message using the default model", async () => {
     const actions = createChatActionsCore(deps);
 
-    await expect(actions.createChatFromFirstMessage({ text: "  Hello world  " })).resolves.toEqual(
-      {
-        chatId,
-        messageId: "saved-message-1",
-        modelId: "model-default",
-      },
-    );
+    await expect(actions.createChatFromFirstMessage({ text: "  Hello world  " })).resolves.toEqual({
+      chatId,
+      messageId: "saved-message-1",
+      modelId: "model-default",
+    });
     expect(deps.createChatWithInitialMessage).toHaveBeenCalledWith({
       message: {
         id: "generated-message-id",
@@ -130,7 +134,11 @@ describe("chat actions core", () => {
     await expect(actions.generateAndSaveChatTitle({ chatId })).resolves.toEqual({
       title: "Generated title",
     });
-    expect(deps.generateChatTitle).toHaveBeenCalledWith(createTextMessage({ text: "First prompt" }));
+    expect(deps.generateChatTitle).toHaveBeenCalledWith({
+      chatId,
+      message: createTextMessage({ text: "First prompt" }),
+      userId,
+    });
     expect(deps.updateChat).toHaveBeenCalledWith({
       chatId,
       title: "Generated title",

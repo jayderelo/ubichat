@@ -44,6 +44,16 @@ const validConfig = {
       id: "gpt-5.4-mini",
       model: "gpt-5.4-mini",
       provider: "azure-openai-responses",
+      usage: {
+        cacheReadCreditWeight: 0.25,
+        cacheWriteCreditWeight: 1,
+        inputCreditWeight: 1,
+        maxInputBytes: 131_072,
+        maxOutputTokens: 4096,
+        outputCreditWeight: 2,
+        reasoningCreditWeight: 2,
+        reserveMultiplier: 1,
+      },
     },
     {
       apiVersion: "2024-05-01-preview",
@@ -59,6 +69,16 @@ const validConfig = {
       id: "deepseek-v4-flash",
       model: "DeepSeek-V4-Flash",
       provider: "azure-foundry-chat",
+      usage: {
+        cacheReadCreditWeight: 0.25,
+        cacheWriteCreditWeight: 1,
+        inputCreditWeight: 1,
+        maxInputBytes: 131_072,
+        maxOutputTokens: 4096,
+        outputCreditWeight: 2,
+        reasoningCreditWeight: 2,
+        reserveMultiplier: 1,
+      },
     },
   ],
 } as const;

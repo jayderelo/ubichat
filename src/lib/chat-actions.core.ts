@@ -42,7 +42,11 @@ type ChatActionsDeps = {
     title: string;
     userId: string;
   }) => Promise<SavedInitialMessage>;
-  generateChatTitle: (message: UIMessage) => Promise<string>;
+  generateChatTitle: (input: {
+    chatId: string;
+    message: UIMessage;
+    userId: string;
+  }) => Promise<string>;
   generateId: () => string;
   getChatForUser: (input: { chatId: string; userId: string }) => Promise<ChatRecord | null>;
   getLlmConfig: () => Promise<{ defaultModelId: string }>;
@@ -129,7 +133,11 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
       }
 
       try {
-        const title = await deps.generateChatTitle(firstUserMessage);
+        const title = await deps.generateChatTitle({
+          chatId: data.chatId,
+          message: firstUserMessage,
+          userId: session.user.id,
+        });
         const updatedChat = await deps.updateChat({
           chatId: data.chatId,
           title,

@@ -14,6 +14,17 @@ const capabilitySchema = z.object({
   vision: z.boolean(),
 });
 
+const usageConfigSchema = z.object({
+  cacheReadCreditWeight: z.number().positive(),
+  cacheWriteCreditWeight: z.number().positive(),
+  inputCreditWeight: z.number().positive(),
+  maxInputBytes: z.number().int().positive(),
+  maxOutputTokens: z.number().int().positive(),
+  outputCreditWeight: z.number().positive(),
+  reasoningCreditWeight: z.number().positive(),
+  reserveMultiplier: z.number().positive().default(1),
+});
+
 const modelConfigSchema = z.object({
   id: z.string().min(1),
   displayName: z.string().min(1),
@@ -22,6 +33,7 @@ const modelConfigSchema = z.object({
   apiVersion: z.string().min(1),
   model: z.string().min(1),
   capabilities: capabilitySchema,
+  usage: usageConfigSchema,
 });
 
 const llmConfigSchema = z
@@ -152,3 +164,5 @@ export function createLanguageModel(config: LlmModelConfig): LanguageModel {
 
   return foundry.chatModel(config.model);
 }
+
+export type { LlmConfig, LlmModelConfig };
