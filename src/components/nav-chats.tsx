@@ -6,6 +6,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "#/components/ui/sidebar.tsx";
 import { Link, useLocation } from "@tanstack/react-router";
 import { ChevronRightIcon, MessageSquareTextIcon } from "lucide-react";
@@ -34,18 +36,17 @@ export function NavChats({ chats }: { chats: ChatSummary[] }) {
             <CollapsibleContent>
               <SidebarMenuSub>
                 {chats.map((chat) => (
-                  <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton
+                  <SidebarMenuSubItem key={chat.id}>
+                    <SidebarMenuSubButton
                       asChild
                       isActive={location.pathname === `/chats/${chat.id}`}
-                      tooltip={chat.title}
-                      className="truncate"
+                      title={chat.title}
                     >
                       <Link params={{ chatId: chat.id }} to="/chats/$chatId">
-                        {chat.title}
+                        <span className="truncate">{chat.title}</span>
                       </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
                 ))}
               </SidebarMenuSub>
             </CollapsibleContent>

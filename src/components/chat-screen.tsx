@@ -10,7 +10,6 @@ import { Message, MessageContent, MessageResponse } from "#/components/ai-elemen
 import {
   PromptInput,
   PromptInputBody,
-  PromptInputButton,
   PromptInputFooter,
   PromptInputSelect,
   PromptInputSelectContent,
@@ -22,15 +21,12 @@ import {
   PromptInputTools,
   type PromptInputMessage,
 } from "#/components/ai-elements/prompt-input";
-import {
-  createChatFromFirstMessage,
-  generateAndSaveChatTitle,
-} from "#/lib/chat-functions.ts";
+import { createChatFromFirstMessage, generateAndSaveChatTitle } from "#/lib/chat-functions.ts";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 import { useChat } from "@ai-sdk/react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { PaperclipIcon, SparklesIcon, TriangleAlertIcon } from "lucide-react";
+import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const AUTO_SUBMIT_KEY_PREFIX = "ubichat:auto-submit:";
@@ -148,7 +144,9 @@ export function ChatScreen({
           to: "/chats/$chatId",
         });
       } catch (caughtError) {
-        setSubmitError(caughtError instanceof Error ? caughtError.message : "Failed to create chat.");
+        setSubmitError(
+          caughtError instanceof Error ? caughtError.message : "Failed to create chat.",
+        );
         throw caughtError;
       } finally {
         setIsCreatingChat(false);
@@ -181,8 +179,8 @@ export function ChatScreen({
   const displayError = modelsError ?? submitError ?? error?.message;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <Conversation className="min-h-0">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <Conversation className="min-h-0 flex-1">
         {messages.length === 0 ? (
           <ConversationEmptyState
             description={modelsError ?? "Start a conversation from the prompt below."}
@@ -224,8 +222,8 @@ export function ChatScreen({
         )}
         <ConversationScrollButton />
       </Conversation>
-      <div className="border-t bg-background p-4">
-        <PromptInput className="mx-auto max-w-3xl" multiple onSubmit={handleSubmit}>
+      <div className="shrink-0 bg-background">
+        <PromptInput className="mx-auto max-w-4xl" multiple onSubmit={handleSubmit}>
           <PromptInputBody>
             <PromptInputTextarea placeholder="Ask anything..." />
           </PromptInputBody>
@@ -249,9 +247,6 @@ export function ChatScreen({
                   ))}
                 </PromptInputSelectContent>
               </PromptInputSelect>
-              <PromptInputButton disabled tooltip="Attachments coming soon">
-                <PaperclipIcon className="size-4" />
-              </PromptInputButton>
             </PromptInputTools>
             <PromptInputSubmit disabled={isSubmitDisabled} onStop={stop} status={status} />
           </PromptInputFooter>
