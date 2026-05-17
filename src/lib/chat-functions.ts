@@ -20,7 +20,7 @@ const createChatSchema = z.object({
 });
 
 const chatIdSchema = z.object({
-  chatId: z.string().uuid(),
+  chatId: z.uuid({ version: "v7" }),
 });
 
 async function requireSession() {
