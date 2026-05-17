@@ -16,7 +16,7 @@ export function createFallbackChatTitle(text: string) {
   }
 
   return normalized.length > MAX_TITLE_LENGTH
-    ? `${normalized.slice(0, MAX_TITLE_LENGTH - 1).trimEnd()}...`
+    ? `${normalized.slice(0, MAX_TITLE_LENGTH - 3).trimEnd()}...`
     : normalized;
 }
 

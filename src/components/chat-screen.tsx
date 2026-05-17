@@ -170,12 +170,7 @@ export function ChatScreen({
   }
 
   const selectedModel = llmConfig?.models.find((model) => model.id === selectedModelId);
-  const isSubmitDisabled =
-    status === "submitted" ||
-    status === "streaming" ||
-    isCreatingChat ||
-    !selectedModelId ||
-    !llmConfig;
+  const isSubmitDisabled = isCreatingChat || !selectedModelId || !llmConfig;
   const displayError = modelsError ?? submitError ?? error?.message;
 
   return (
