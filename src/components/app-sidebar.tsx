@@ -8,6 +8,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -15,7 +16,7 @@ import {
   SidebarRail,
 } from "#/components/ui/sidebar.tsx";
 import { Link } from "@tanstack/react-router";
-import { MessageCircleIcon, PlusIcon } from "lucide-react";
+import { EditIcon, MessageCircleIcon } from "lucide-react";
 
 type SidebarChat = {
   id: string;
@@ -51,17 +52,19 @@ export function AppSidebar({ chats, user, ...props }: AppSidebarProps) {
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="New Chat">
               <Link to="/">
-                <PlusIcon />
+                <EditIcon />
                 <span>New Chat</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent>
+        </SidebarGroup>
         <NavChats chats={chats} />
       </SidebarContent>
       <SidebarFooter>
