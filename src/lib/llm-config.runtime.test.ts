@@ -42,6 +42,7 @@ const validConfig = {
       },
       displayName: "GPT-5.4 Mini",
       id: "gpt-5.4-mini",
+      lab: "openai",
       model: "gpt-5.4-mini",
       provider: "azure-openai-responses",
       usage: {
@@ -67,6 +68,7 @@ const validConfig = {
       },
       displayName: "DeepSeek V4 Flash",
       id: "deepseek-v4-flash",
+      lab: "deepseek",
       model: "DeepSeek-V4-Flash",
       provider: "azure-foundry-chat",
       usage: {
@@ -106,12 +108,14 @@ describe("llm config runtime helpers", () => {
           capabilities: validConfig.models[0].capabilities,
           displayName: "GPT-5.4 Mini",
           id: "gpt-5.4-mini",
+          lab: "openai",
           provider: "azure-openai-responses",
         },
         {
           capabilities: validConfig.models[1].capabilities,
           displayName: "DeepSeek V4 Flash",
           id: "deepseek-v4-flash",
+          lab: "deepseek",
           provider: "azure-foundry-chat",
         },
       ],

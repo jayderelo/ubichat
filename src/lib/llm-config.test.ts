@@ -19,6 +19,7 @@ const validConfig = {
     {
       id: "gpt-5.4-mini",
       displayName: "GPT-5.4 Mini",
+      lab: "openai",
       provider: "azure-openai-responses",
       baseURL: "https://example.openai.azure.com/openai",
       apiVersion: "2025-04-01-preview",
@@ -35,6 +36,7 @@ const validConfig = {
     {
       id: "kimi-k2.6",
       displayName: "Kimi K2.6",
+      lab: "moonshotai",
       provider: "azure-foundry-chat",
       baseURL: "https://example.services.ai.azure.com/models",
       apiVersion: "2024-05-01-preview",
@@ -51,6 +53,7 @@ const validConfig = {
     {
       id: "deepseek-v4-flash",
       displayName: "DeepSeek V4 Flash",
+      lab: "deepseek",
       provider: "azure-foundry-chat",
       baseURL: "https://example.services.ai.azure.com/models",
       apiVersion: "2024-05-01-preview",

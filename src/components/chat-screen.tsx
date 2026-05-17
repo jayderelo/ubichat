@@ -8,19 +8,29 @@ import {
 } from "#/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "#/components/ai-elements/message";
 import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorGroup,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorLogo,
+  ModelSelectorLogoGroup,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "#/components/ai-elements/model-selector";
+import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
-  PromptInputSelect,
-  PromptInputSelectContent,
-  PromptInputSelectItem,
-  PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
   type PromptInputMessage,
 } from "#/components/ai-elements/prompt-input";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "#/components/ai-elements/reasoning";
+import { Button } from "#/components/ui/button.tsx";
 import { createChatFromFirstMessage, generateAndSaveChatTitle } from "#/lib/chat-functions.ts";
 import { creditLimitSummaryQueryKey } from "#/lib/credit-limit-query.ts";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
@@ -28,7 +38,7 @@ import { useChat } from "@ai-sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
+import { BrainIcon, ChevronsUpDownIcon, SparklesIcon, TriangleAlertIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const AUTO_SUBMIT_KEY_PREFIX = "ubichat:auto-submit:";
@@ -39,10 +49,26 @@ type AutoSubmitPayload = {
 
 type ChatScreenProps = {
   chatId?: string;
+  initialModelId?: string | null;
   initialMessages?: UIMessage[];
   llmConfig: PublicLlmConfig | null;
   modelsError?: string | null;
 };
+
+function getInitialSelectedModelId(
+  llmConfig: PublicLlmConfig | null,
+  initialModelId?: string | null,
+) {
+  if (!llmConfig) {
+    return "";
+  }
+
+  if (initialModelId && llmConfig.models.some((model) => model.id === initialModelId)) {
+    return initialModelId;
+  }
+
+  return llmConfig.defaultModelId;
+}
 
 function readAutoSubmitPayload(chatId: string) {
   const key = `${AUTO_SUBMIT_KEY_PREFIX}${chatId}`;
@@ -63,6 +89,7 @@ function readAutoSubmitPayload(chatId: string) {
 
 export function ChatScreen({
   chatId,
+  initialModelId,
   initialMessages = [],
   llmConfig,
   modelsError,
@@ -71,7 +98,10 @@ export function ChatScreen({
   const queryClient = useQueryClient();
   const router = useRouter();
   const hasAutoSubmitted = useRef(false);
-  const [selectedModelId, setSelectedModelId] = useState(llmConfig?.defaultModelId ?? "");
+  const [selectedModelId, setSelectedModelId] = useState(() =>
+    getInitialSelectedModelId(llmConfig, initialModelId),
+  );
+  const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const transport = useMemo(() => new DefaultChatTransport({ api: "/api/chat" }), []);
@@ -86,6 +116,10 @@ export function ChatScreen({
   });
 
   useEffect(() => {
+    setSelectedModelId(getInitialSelectedModelId(llmConfig, initialModelId));
+  }, [chatId, initialModelId, llmConfig]);
+
+  useEffect(() => {
     if (!chatId || hasAutoSubmitted.current || typeof window === "undefined") {
       return;
     }
@@ -97,6 +131,7 @@ export function ChatScreen({
     }
 
     hasAutoSubmitted.current = true;
+    setSelectedModelId(payload.modelId);
     void sendMessage(undefined, {
       body: {
         chatId,
@@ -179,6 +214,7 @@ export function ChatScreen({
   const selectedModel = llmConfig?.models.find((model) => model.id === selectedModelId);
   const isSubmitDisabled = isCreatingChat || !selectedModelId || !llmConfig;
   const displayError = modelsError ?? submitError ?? error?.message;
+  const isAssistantStreaming = status === "submitted" || status === "streaming";
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -201,6 +237,24 @@ export function ChatScreen({
               <Message from={message.role} key={message.id}>
                 <MessageContent>
                   {message.parts.map((part, index) => {
+                    const isMessageStreaming =
+                      isAssistantStreaming &&
+                      message.role === "assistant" &&
+                      message.id === messages.at(-1)?.id;
+
+                    if (part.type === "reasoning") {
+                      return (
+                        <Reasoning
+                          className="mb-2"
+                          isStreaming={isMessageStreaming}
+                          key={`${message.id}-${index}`}
+                        >
+                          <ReasoningTrigger />
+                          <ReasoningContent>{part.text}</ReasoningContent>
+                        </Reasoning>
+                      );
+                    }
+
                     if (part.type === "text") {
                       return (
                         <MessageResponse key={`${message.id}-${index}`}>
@@ -231,24 +285,65 @@ export function ChatScreen({
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools>
-              <PromptInputSelect
-                disabled={!llmConfig}
-                onValueChange={setSelectedModelId}
-                value={selectedModelId}
-              >
-                <PromptInputSelectTrigger className="h-8 max-w-48">
-                  <PromptInputSelectValue placeholder="Select model">
-                    {selectedModel?.displayName}
-                  </PromptInputSelectValue>
-                </PromptInputSelectTrigger>
-                <PromptInputSelectContent>
-                  {llmConfig?.models.map((model) => (
-                    <PromptInputSelectItem key={model.id} value={model.id}>
-                      {model.displayName}
-                    </PromptInputSelectItem>
-                  ))}
-                </PromptInputSelectContent>
-              </PromptInputSelect>
+              <ModelSelector onOpenChange={setIsModelSelectorOpen} open={isModelSelectorOpen}>
+                <ModelSelectorTrigger asChild>
+                  <Button
+                    aria-label="Model"
+                    className="h-8 max-w-56 justify-between"
+                    disabled={!llmConfig}
+                    type="button"
+                    variant="outline"
+                  >
+                    {selectedModel ? (
+                      <>
+                        {selectedModel.capabilities.reasoning && (
+                          <BrainIcon className="size-4 text-muted-foreground" />
+                        )}
+                        <ModelSelectorLogoGroup>
+                          <ModelSelectorLogo provider={selectedModel.lab} />
+                        </ModelSelectorLogoGroup>
+                        <ModelSelectorName>{selectedModel.displayName}</ModelSelectorName>
+                      </>
+                    ) : (
+                      <ModelSelectorName>Select model</ModelSelectorName>
+                    )}
+                    <ChevronsUpDownIcon className="size-4 text-muted-foreground" />
+                  </Button>
+                </ModelSelectorTrigger>
+                <ModelSelectorContent title="Select model">
+                  <ModelSelectorInput placeholder="Search models..." />
+                  <ModelSelectorList>
+                    <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                    <ModelSelectorGroup heading="Models">
+                      {llmConfig?.models.map((model) => {
+                        const isSelected = model.id === selectedModelId;
+
+                        return (
+                          <ModelSelectorItem
+                            data-checked={isSelected}
+                            key={model.id}
+                            onSelect={() => {
+                              setSelectedModelId(model.id);
+                              setIsModelSelectorOpen(false);
+                            }}
+                            value={model.displayName}
+                          >
+                            <ModelSelectorName>{model.displayName}</ModelSelectorName>
+                            {model.capabilities.reasoning && (
+                              <BrainIcon className="ml-auto size-4 text-muted-foreground" />
+                            )}
+                            <ModelSelectorLogoGroup
+                              className={model.capabilities.reasoning ? "" : "ml-auto"}
+                            >
+                              <ModelSelectorLogo provider={model.lab} />
+                            </ModelSelectorLogoGroup>
+                          </ModelSelectorItem>
+                        );
+                      })}
+                    </ModelSelectorGroup>
+                  </ModelSelectorList>
+                </ModelSelectorContent>
+              </ModelSelector>
             </PromptInputTools>
             <PromptInputSubmit disabled={isSubmitDisabled} onStop={stop} status={status} />
           </PromptInputFooter>

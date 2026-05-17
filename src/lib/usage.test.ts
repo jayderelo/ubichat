@@ -27,6 +27,7 @@ const modelConfig = {
   },
   displayName: "Test Model",
   id: "test-model",
+  lab: "deepseek",
   model: "test-model",
   provider: "azure-foundry-chat",
   usage: {

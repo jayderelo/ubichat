@@ -28,6 +28,7 @@ const usageConfigSchema = z.object({
 const modelConfigSchema = z.object({
   id: z.string().min(1),
   displayName: z.string().min(1),
+  lab: z.string().min(1),
   provider: z.enum(["azure-openai-responses", "azure-foundry-chat"]),
   baseURL: z.string().url(),
   apiVersion: z.string().min(1),
@@ -98,10 +99,11 @@ export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
 
   return {
     defaultModelId: config.defaultModelId,
-    models: config.models.map(({ id, displayName, provider, capabilities }) => ({
+    models: config.models.map(({ id, displayName, lab, provider, capabilities }) => ({
       capabilities,
       displayName,
       id,
+      lab,
       provider,
     })),
   };

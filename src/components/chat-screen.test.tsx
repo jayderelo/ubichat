@@ -68,6 +68,45 @@ vi.mock("#/components/ai-elements/message", () => ({
   MessageResponse: ({ children }: React.PropsWithChildren) => <p>{children}</p>,
 }));
 
+vi.mock("#/components/ai-elements/model-selector", () => ({
+  ModelSelector: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  ModelSelectorContent: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  ModelSelectorEmpty: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  ModelSelectorGroup: ({ children }: React.PropsWithChildren<{ heading?: string }>) => (
+    <div>{children}</div>
+  ),
+  ModelSelectorInput: ({ placeholder }: { placeholder?: string }) => (
+    <input aria-label="Search models" placeholder={placeholder} />
+  ),
+  ModelSelectorItem: ({
+    children,
+    onSelect,
+    value,
+  }: React.PropsWithChildren<{ onSelect?: () => void; value: string }>) => (
+    <button onClick={onSelect} role="option" type="button" value={value}>
+      {children}
+    </button>
+  ),
+  ModelSelectorList: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
+  ModelSelectorLogo: ({ provider }: { provider: string }) => <span>{provider}</span>,
+  ModelSelectorLogoGroup: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
+  ModelSelectorName: ({ children }: React.PropsWithChildren) => <span>{children}</span>,
+  ModelSelectorTrigger: ({ children }: React.PropsWithChildren<{ asChild?: boolean }>) => (
+    <>{children}</>
+  ),
+}));
+
+vi.mock("#/components/ai-elements/reasoning", () => ({
+  Reasoning: ({
+    children,
+    isStreaming,
+  }: React.PropsWithChildren<{ isStreaming?: boolean }>) => (
+    <section data-streaming={isStreaming}>{children}</section>
+  ),
+  ReasoningContent: ({ children }: React.PropsWithChildren) => <p>{children}</p>,
+  ReasoningTrigger: () => <button type="button">Thinking...</button>,
+}));
+
 vi.mock("#/components/ai-elements/prompt-input", () => {
   function PromptInput({
     children,
@@ -98,33 +137,6 @@ vi.mock("#/components/ai-elements/prompt-input", () => {
     PromptInput,
     PromptInputBody: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
     PromptInputFooter: ({ children }: React.PropsWithChildren) => <footer>{children}</footer>,
-    PromptInputSelect: ({
-      children,
-      disabled,
-      onValueChange,
-      value,
-    }: React.PropsWithChildren<{
-      disabled?: boolean;
-      onValueChange: (value: string) => void;
-      value: string;
-    }>) => (
-      <div>
-        <select
-          aria-label="Model"
-          disabled={disabled}
-          onChange={(event) => onValueChange(event.target.value)}
-          value={value}
-        >
-          {children}
-        </select>
-      </div>
-    ),
-    PromptInputSelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
-    PromptInputSelectItem: ({ children, value }: React.PropsWithChildren<{ value: string }>) => (
-      <option value={value}>{children}</option>
-    ),
-    PromptInputSelectTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
-    PromptInputSelectValue: ({ children }: React.PropsWithChildren) => <>{children}</>,
     PromptInputSubmit: ({
       disabled,
       onStop,
@@ -246,6 +258,33 @@ describe("ChatScreen", () => {
     });
   });
 
+  it("creates a new chat from a first text message with the selected model", async () => {
+    const user = userEvent.setup();
+    mocks.createChatFromFirstMessage.mockResolvedValue({
+      chatId,
+      messageId: "message-1",
+      modelId: "model-other",
+    });
+
+    render(<ChatScreen llmConfig={createPublicLlmConfig()} />);
+
+    await user.click(screen.getByRole("option", { name: /Other Model/ }));
+    await user.type(screen.getByLabelText("Prompt"), "Start a project plan");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mocks.createChatFromFirstMessage).toHaveBeenCalledWith({
+        data: {
+          modelId: "model-other",
+          text: "Start a project plan",
+        },
+      });
+    });
+    expect(window.sessionStorage.getItem(`ubichat:auto-submit:${chatId}`)).toBe(
+      JSON.stringify({ modelId: "model-other" }),
+    );
+  });
+
   it("does not create a new chat for empty prompt text", async () => {
     const user = userEvent.setup();
     render(<ChatScreen llmConfig={createPublicLlmConfig()} />);
@@ -259,7 +298,7 @@ describe("ChatScreen", () => {
     const user = userEvent.setup();
     render(<ChatScreen chatId={chatId} llmConfig={createPublicLlmConfig()} />);
 
-    await user.selectOptions(screen.getByLabelText("Model"), "model-other");
+    await user.click(screen.getByRole("option", { name: /Other Model/ }));
     await user.type(screen.getByLabelText("Prompt"), "Continue");
     await user.click(screen.getByRole("button", { name: "Submit" }));
 
@@ -278,6 +317,56 @@ describe("ChatScreen", () => {
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ["credit-limit-summary"],
     });
+  });
+
+  it("initializes an existing chat with its saved model", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        chatId={chatId}
+        initialModelId="model-other"
+        llmConfig={createPublicLlmConfig()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Model")).toHaveTextContent("Other Model");
+
+    await user.type(screen.getByLabelText("Prompt"), "Continue");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(
+      {
+        files: [],
+        text: "Continue",
+      },
+      {
+        body: {
+          chatId,
+          modelId: "model-other",
+        },
+      },
+    );
+  });
+
+  it("renders reasoning parts from assistant messages", () => {
+    mockUseChat({
+      messages: [
+        {
+          id: "message-2",
+          parts: [
+            { text: "I should compare the options.", type: "reasoning" },
+            { text: "Use the second option.", type: "text" },
+          ],
+          role: "assistant",
+        } as UIMessage,
+      ],
+    });
+
+    render(<ChatScreen chatId={chatId} llmConfig={createPublicLlmConfig()} />);
+
+    expect(screen.getByText("Thinking...")).toBeInTheDocument();
+    expect(screen.getByText("I should compare the options.")).toBeInTheDocument();
+    expect(screen.getByText("Use the second option.")).toBeInTheDocument();
   });
 
   it("auto-submits a saved first message when loading a newly created chat", async () => {

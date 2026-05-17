@@ -56,6 +56,7 @@ export function createPublicLlmConfig(overrides: Partial<PublicLlmConfig> = {}):
         },
         displayName: "Default Model",
         id: "model-default",
+        lab: "deepseek",
         provider: "azure-foundry-chat",
       },
       {
@@ -68,6 +69,7 @@ export function createPublicLlmConfig(overrides: Partial<PublicLlmConfig> = {}):
         },
         displayName: "Other Model",
         id: "model-other",
+        lab: "openai",
         provider: "azure-openai-responses",
       },
     ],

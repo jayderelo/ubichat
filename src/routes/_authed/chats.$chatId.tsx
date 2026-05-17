@@ -14,5 +14,12 @@ function ChatRoute() {
   const { chat, llmConfig, messagesJson } = Route.useLoaderData();
   const messages = JSON.parse(messagesJson) as UIMessage[];
 
-  return <ChatScreen chatId={chat.id} initialMessages={messages} llmConfig={llmConfig} />;
+  return (
+    <ChatScreen
+      chatId={chat.id}
+      initialMessages={messages}
+      initialModelId={chat.modelId}
+      llmConfig={llmConfig}
+    />
+  );
 }

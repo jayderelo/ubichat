@@ -11,6 +11,7 @@ export type LlmModelCapabilities = {
 export type PublicLlmModel = {
   id: string;
   displayName: string;
+  lab: string;
   provider: LlmProvider;
   capabilities: LlmModelCapabilities;
 };

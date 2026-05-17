@@ -18,7 +18,10 @@ async function responseJson(response: Response) {
 
 type TestSession = { user: { id: string } };
 
-function createModelConfig(id = "model-default"): LlmModelConfig {
+function createModelConfig(
+  id = "model-default",
+  overrides: Partial<LlmModelConfig> = {},
+): LlmModelConfig {
   return {
     apiVersion: "2025-04-01-preview",
     baseURL: "https://example.com",
@@ -31,6 +34,7 @@ function createModelConfig(id = "model-default"): LlmModelConfig {
     },
     displayName: "Test Model",
     id,
+    lab: "deepseek",
     model: id,
     provider: "azure-foundry-chat",
     usage: {
@@ -43,6 +47,7 @@ function createModelConfig(id = "model-default"): LlmModelConfig {
       reasoningCreditWeight: 3,
       reserveMultiplier: 1,
     },
+    ...overrides,
   };
 }
 
@@ -193,6 +198,7 @@ describe("chat API core", () => {
     const streamOptions = streamResult.toUIMessageStreamResponse.mock.calls[0]?.[0];
 
     expect(streamOptions.originalMessages).toEqual(originalMessages);
+    expect(streamOptions.sendReasoning).toBe(true);
     await streamOptions.onFinish({ messages: finishedMessages });
     expect(deps.finalizeChatUsageAndMessages).toHaveBeenCalledWith({
       callId: "usage-call-1",
@@ -218,5 +224,61 @@ describe("chat API core", () => {
     await handlePost(jsonRequest({ chatId, messages: [], modelId: "model-other" }));
 
     expect(deps.getLlmModelConfig).toHaveBeenCalledWith("model-other");
+  });
+
+  it("enables reasoning summaries for Azure OpenAI responses models", async () => {
+    deps.getLlmModelConfig.mockResolvedValue(
+      createModelConfig("model-reasoning", {
+        capabilities: {
+          chatCompletions: false,
+          reasoning: true,
+          responses: true,
+          tools: true,
+          vision: false,
+        },
+        provider: "azure-openai-responses",
+      }),
+    );
+    const handlePost = createChatApiHandler(deps);
+
+    await handlePost(jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }));
+
+    expect(deps.streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          azure: {
+            reasoningEffort: "medium",
+            reasoningSummary: "auto",
+          },
+        },
+      }),
+    );
+  });
+
+  it("enables reasoning effort for Azure Foundry chat models", async () => {
+    deps.getLlmModelConfig.mockResolvedValue(
+      createModelConfig("model-reasoning", {
+        capabilities: {
+          chatCompletions: true,
+          reasoning: true,
+          responses: false,
+          tools: false,
+          vision: false,
+        },
+      }),
+    );
+    const handlePost = createChatApiHandler(deps);
+
+    await handlePost(jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }));
+
+    expect(deps.streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          azureFoundry: {
+            reasoningEffort: "medium",
+          },
+        },
+      }),
+    );
   });
 });

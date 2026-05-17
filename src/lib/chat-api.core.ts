@@ -25,6 +25,8 @@ type UsageReservation =
       reservedCredits: number;
     };
 
+type ChatProviderOptions = Record<string, Record<string, boolean | string | string[]>>;
+
 export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
   assertTextOnlyMessages: (messages: UIMessage[]) => void;
   assertWithinModelInputLimit: (messages: UIMessage[], modelConfig: ModelConfig) => void;
@@ -64,12 +66,14 @@ export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
     model: LanguageModel;
     onAbort: () => Promise<void>;
     onError: (event: { error: unknown }) => Promise<void>;
+    providerOptions?: ChatProviderOptions;
     system: string;
   }) => {
     finishReason: PromiseLike<string | undefined>;
     toUIMessageStreamResponse: (options: {
       onFinish: (event: { messages: UIMessage[] }) => Promise<void>;
       originalMessages: UIMessage[];
+      sendReasoning?: boolean;
     }) => Response;
     totalUsage: PromiseLike<LanguageModelUsage>;
   };
@@ -264,6 +268,27 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
+function createProviderOptions(modelConfig: LlmModelConfig): ChatProviderOptions | undefined {
+  if (!modelConfig.capabilities.reasoning) {
+    return undefined;
+  }
+
+  if (modelConfig.provider === "azure-openai-responses") {
+    return {
+      azure: {
+        reasoningEffort: "medium",
+        reasoningSummary: "auto",
+      },
+    };
+  }
+
+  return {
+    azureFoundry: {
+      reasoningEffort: "medium",
+    },
+  };
+}
+
 export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
   deps: ChatApiDeps<ModelConfig>,
 ) {
@@ -358,6 +383,7 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
     }
 
     let result: ReturnType<typeof deps.streamText>;
+    const providerOptions = createProviderOptions(modelConfig);
 
     try {
       result = deps.streamText({
@@ -380,6 +406,7 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
             error: errorMessage(error),
           });
         },
+        ...(providerOptions ? { providerOptions } : {}),
         system: SYSTEM_PROMPT,
       });
     } catch (caughtError) {
@@ -389,6 +416,7 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
 
     return result.toUIMessageStreamResponse({
       originalMessages: authoritativeMessages,
+      sendReasoning: true,
       onFinish: async ({ messages: finishedMessages }) => {
         await deps.finalizeChatUsageAndMessages({
           callId: reservation.call.id,
