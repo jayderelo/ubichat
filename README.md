@@ -9,6 +9,13 @@ npm install
 npm run dev
 ```
 
+## Usage Limits
+
+Chat and title-generation model calls are metered with daily weighted token credits.
+Set `DEFAULT_DAILY_TOKEN_CREDITS` to control the fallback daily limit for users
+without a row in `user_usage_limit`. Manual resets can be done through the
+`resetUserUsage(userId)` helper or equivalent database operations.
+
 # Building For Production
 
 To build this application for production:

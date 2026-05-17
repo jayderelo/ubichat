@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { parseLlmConfig } from "#/lib/llm-config.ts";
 
+const usage = {
+  cacheReadCreditWeight: 0.25,
+  cacheWriteCreditWeight: 1,
+  inputCreditWeight: 1,
+  maxInputBytes: 131_072,
+  maxOutputTokens: 4096,
+  outputCreditWeight: 2,
+  reasoningCreditWeight: 2,
+  reserveMultiplier: 1,
+};
+
 const validConfig = {
   defaultModelId: "gpt-5.4-mini",
   titleModelId: "deepseek-v4-flash",
@@ -19,6 +30,7 @@ const validConfig = {
         tools: true,
         vision: false,
       },
+      usage,
     },
     {
       id: "kimi-k2.6",
@@ -34,6 +46,7 @@ const validConfig = {
         tools: false,
         vision: false,
       },
+      usage,
     },
     {
       id: "deepseek-v4-flash",
@@ -49,6 +62,7 @@ const validConfig = {
         tools: false,
         vision: false,
       },
+      usage,
     },
   ],
 };
@@ -93,6 +107,34 @@ describe("parseLlmConfig", () => {
           {
             ...validConfig.models[0],
             provider: "unsupported-provider",
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects models without usage limits", () => {
+    const { usage: _usage, ...modelWithoutUsage } = validConfig.models[0];
+
+    expect(() =>
+      parseLlmConfig({
+        ...validConfig,
+        models: [modelWithoutUsage],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects invalid usage limits", () => {
+    expect(() =>
+      parseLlmConfig({
+        ...validConfig,
+        models: [
+          {
+            ...validConfig.models[0],
+            usage: {
+              ...usage,
+              maxOutputTokens: 0,
+            },
           },
         ],
       }),

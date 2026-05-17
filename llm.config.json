@@ -15,6 +15,16 @@
         "responses": true,
         "tools": true,
         "vision": false
+      },
+      "usage": {
+        "cacheReadCreditWeight": 0.25,
+        "cacheWriteCreditWeight": 1,
+        "inputCreditWeight": 1,
+        "maxInputBytes": 131072,
+        "maxOutputTokens": 4096,
+        "outputCreditWeight": 4,
+        "reasoningCreditWeight": 4,
+        "reserveMultiplier": 1
       }
     },
     {
@@ -30,6 +40,16 @@
         "responses": false,
         "tools": false,
         "vision": false
+      },
+      "usage": {
+        "cacheReadCreditWeight": 0.25,
+        "cacheWriteCreditWeight": 1,
+        "inputCreditWeight": 1,
+        "maxInputBytes": 131072,
+        "maxOutputTokens": 4096,
+        "outputCreditWeight": 2,
+        "reasoningCreditWeight": 2,
+        "reserveMultiplier": 1
       }
     },
     {
@@ -45,6 +65,16 @@
         "responses": false,
         "tools": false,
         "vision": false
+      },
+      "usage": {
+        "cacheReadCreditWeight": 0.25,
+        "cacheWriteCreditWeight": 1,
+        "inputCreditWeight": 1,
+        "maxInputBytes": 131072,
+        "maxOutputTokens": 4096,
+        "outputCreditWeight": 2,
+        "reasoningCreditWeight": 2,
+        "reserveMultiplier": 1
       }
     }
   ]

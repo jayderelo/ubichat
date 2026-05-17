@@ -149,7 +149,11 @@ export const generateAndSaveChatTitle = createServerFn({ method: "POST" })
     }
 
     try {
-      const title = await generateChatTitle(firstUserMessage);
+      const title = await generateChatTitle({
+        chatId: data.chatId,
+        message: firstUserMessage,
+        userId: session.user.id,
+      });
       const updatedChat = await updateChat({
         chatId: data.chatId,
         title,

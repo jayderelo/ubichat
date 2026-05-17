@@ -1,6 +1,16 @@
 import { auth } from "#/lib/auth.ts";
-import { getChatForUser, replaceChatMessages } from "#/lib/chats.ts";
+import { getChatForUser, listChatMessages } from "#/lib/chats.ts";
 import { createLanguageModel, getLlmConfig, getLlmModelConfig } from "#/lib/llm-config.ts";
+import {
+  assertTextOnlyMessages,
+  assertWithinModelInputLimit,
+  chargeReservedUsage,
+  estimateInputTokens,
+  finalizeChatUsageAndMessages,
+  markProviderStarted,
+  releaseUsage,
+  reserveUsage,
+} from "#/lib/usage.ts";
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, validateUIMessages, type UIMessage } from "ai";
 import { z } from "zod";
@@ -10,6 +20,35 @@ const chatRequestSchema = z.object({
   modelId: z.string().min(1).optional(),
   messages: z.unknown(),
 });
+
+function buildAuthoritativeMessages({
+  clientMessages,
+  storedMessages,
+}: {
+  clientMessages: UIMessage[];
+  storedMessages: UIMessage[];
+}) {
+  const storedLastMessage = storedMessages.at(-1);
+
+  if (storedLastMessage?.role === "user") {
+    return storedMessages;
+  }
+
+  const storedMessageIds = new Set(storedMessages.map((message) => message.id));
+  const nextMessage = clientMessages.findLast(
+    (message) => message.role === "user" && !storedMessageIds.has(message.id),
+  );
+
+  if (!nextMessage) {
+    return null;
+  }
+
+  return [...storedMessages, nextMessage];
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown error";
+}
 
 export const Route = createFileRoute("/api/chat")({
   server: {
@@ -52,19 +91,91 @@ export const Route = createFileRoute("/api/chat")({
           return Response.json({ error: "Invalid messages" }, { status: 400 });
         }
 
-        const result = streamText({
-          messages: await convertToModelMessages(messages),
-          model: createLanguageModel(modelConfig),
-          system: SYSTEM_PROMPT,
+        const storedMessages = await listChatMessages({
+          chatId: parsedBody.data.chatId,
+          userId: session.user.id,
         });
 
+        if (!storedMessages) {
+          return Response.json({ error: "Chat not found" }, { status: 404 });
+        }
+
+        const authoritativeMessages = buildAuthoritativeMessages({
+          clientMessages: messages,
+          storedMessages,
+        });
+
+        if (!authoritativeMessages) {
+          return Response.json({ error: "Message history does not match saved chat" }, { status: 409 });
+        }
+
+        try {
+          assertTextOnlyMessages(authoritativeMessages);
+          assertWithinModelInputLimit(authoritativeMessages, modelConfig);
+        } catch (caughtError) {
+          return Response.json({ error: errorMessage(caughtError) }, { status: 400 });
+        }
+
+        const reservation = await reserveUsage({
+          chatId: parsedBody.data.chatId,
+          estimatedInputTokens: estimateInputTokens(authoritativeMessages),
+          kind: "chat",
+          modelConfig,
+          userId: session.user.id,
+        });
+
+        if (!reservation.ok) {
+          return Response.json(
+            {
+              availableCredits: reservation.availableCredits,
+              error: "Daily token limit exceeded",
+              requiredCredits: reservation.reservedCredits,
+            },
+            { status: 429 },
+          );
+        }
+
+        let result: ReturnType<typeof streamText>;
+
+        try {
+          result = streamText({
+            experimental_onStepStart: async () => {
+              await markProviderStarted(reservation.call.id);
+            },
+            maxOutputTokens: modelConfig.usage.maxOutputTokens,
+            maxRetries: 0,
+            messages: await convertToModelMessages(authoritativeMessages),
+            model: createLanguageModel(modelConfig),
+            onAbort: async () => {
+              await chargeReservedUsage({
+                callId: reservation.call.id,
+                error: "Stream aborted after provider start.",
+              });
+            },
+            onError: async ({ error }) => {
+              await chargeReservedUsage({
+                callId: reservation.call.id,
+                error: errorMessage(error),
+              });
+            },
+            system: SYSTEM_PROMPT,
+          });
+        } catch (caughtError) {
+          await releaseUsage({ callId: reservation.call.id, error: errorMessage(caughtError) });
+          throw caughtError;
+        }
+
         return result.toUIMessageStreamResponse({
-          originalMessages: messages,
+          originalMessages: authoritativeMessages,
           onFinish: async ({ messages: finishedMessages }) => {
-            await replaceChatMessages({
+            await finalizeChatUsageAndMessages({
+              callId: reservation.call.id,
               chatId: parsedBody.data.chatId,
+              finishReason: await result.finishReason,
               messages: finishedMessages,
               modelId,
+              modelConfig,
+              usage: await result.totalUsage,
               userId: session.user.id,
             });
           },
