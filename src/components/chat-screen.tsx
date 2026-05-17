@@ -22,8 +22,10 @@ import {
   type PromptInputMessage,
 } from "#/components/ai-elements/prompt-input";
 import { createChatFromFirstMessage, generateAndSaveChatTitle } from "#/lib/chat-functions.ts";
+import { creditLimitSummaryQueryKey } from "#/lib/credit-limit-query.ts";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 import { useChat } from "@ai-sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { SparklesIcon, TriangleAlertIcon } from "lucide-react";
@@ -66,6 +68,7 @@ export function ChatScreen({
   modelsError,
 }: ChatScreenProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const router = useRouter();
   const hasAutoSubmitted = useRef(false);
   const [selectedModelId, setSelectedModelId] = useState(llmConfig?.defaultModelId ?? "");
@@ -77,6 +80,7 @@ export function ChatScreen({
     messages: initialMessages,
     onFinish: () => {
       void router.invalidate();
+      void queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
     },
     transport,
   });
@@ -99,8 +103,9 @@ export function ChatScreen({
         modelId: payload.modelId,
       },
     });
+    void queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
     void generateAndSaveChatTitle({ data: { chatId } }).then(() => router.invalidate());
-  }, [chatId, router, sendMessage]);
+  }, [chatId, queryClient, router, sendMessage]);
 
   async function handleSubmit(message: PromptInputMessage) {
     const text = message.text.trim();
@@ -143,6 +148,7 @@ export function ChatScreen({
           params: { chatId: createdChat.chatId },
           to: "/chats/$chatId",
         });
+        await queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
       } catch (caughtError) {
         setSubmitError(
           caughtError instanceof Error ? caughtError.message : "Failed to create chat.",
@@ -167,6 +173,7 @@ export function ChatScreen({
         },
       },
     );
+    await queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
   }
 
   const selectedModel = llmConfig?.models.find((model) => model.id === selectedModelId);

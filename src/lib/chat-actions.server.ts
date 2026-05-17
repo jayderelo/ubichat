@@ -1,10 +1,7 @@
 import { notFound } from "@tanstack/react-router";
 import { getRequestHeaders } from "@tanstack/react-start/server";
 import { generateId } from "ai";
-import {
-  createChatActionsCore,
-  type SessionLike,
-} from "#/lib/chat-actions.core.ts";
+import { createChatActionsCore, type SessionLike } from "#/lib/chat-actions.core.ts";
 import { auth } from "#/lib/auth.ts";
 import { generateChatTitle } from "#/lib/chat-title.ts";
 import {

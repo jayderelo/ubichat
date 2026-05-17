@@ -57,6 +57,15 @@ type ChargeReservedUsageInput = {
   error?: string;
 };
 
+export type UsageSummary = {
+  dailyCreditLimit: number;
+  periodEnd: string;
+  remainingCredits: number;
+  remainingPercent: number;
+  reservedCredits: number;
+  usedCredits: number;
+};
+
 function getDefaultDailyCreditLimit() {
   const configured = process.env.DEFAULT_DAILY_TOKEN_CREDITS;
 
@@ -208,6 +217,26 @@ async function ensureCurrentUsagePeriod(userId: string) {
 
     return createdPeriod;
   });
+}
+
+export async function getCurrentUsageSummary(userId: string): Promise<UsageSummary> {
+  const period = await ensureCurrentUsagePeriod(userId);
+  const remainingCredits = Math.max(
+    0,
+    period.dailyCreditLimit - period.usedCredits - period.reservedCredits,
+  );
+
+  return {
+    dailyCreditLimit: period.dailyCreditLimit,
+    periodEnd: period.periodEnd.toISOString(),
+    remainingCredits,
+    remainingPercent:
+      period.dailyCreditLimit > 0
+        ? Math.round((remainingCredits / period.dailyCreditLimit) * 100)
+        : 0,
+    reservedCredits: period.reservedCredits,
+    usedCredits: period.usedCredits,
+  };
 }
 
 export async function reserveUsage({

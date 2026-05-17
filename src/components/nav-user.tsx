@@ -1,27 +1,29 @@
+"use client";
+
 import { Avatar, AvatarFallback, AvatarImage } from "#/components/ui/avatar.tsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "#/components/ui/dropdown-menu.tsx";
+import { Progress } from "#/components/ui/progress.tsx";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "#/components/ui/sidebar.tsx";
-import {
-  ChevronsUpDownIcon,
-  SparklesIcon,
-  BadgeCheckIcon,
-  CreditCardIcon,
-  BellIcon,
-  LogOutIcon,
-} from "lucide-react";
+import { authClient } from "#/lib/auth-client.ts";
+import { creditLimitSummaryQueryOptions } from "#/lib/credit-limit-query.ts";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { ChevronsUpDownIcon, LogOutIcon, RefreshCwIcon } from "lucide-react";
+import { Suspense, useState } from "react";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+
+const creditNumberFormatter = new Intl.NumberFormat("en-US");
 
 export function NavUser({
   user,
@@ -33,6 +35,23 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function signOut() {
+    setIsSigningOut(true);
+
+    const { error } = await authClient.signOut();
+
+    if (error) {
+      setIsSigningOut(false);
+      return;
+    }
+
+    await router.invalidate();
+    await navigate({ to: "/login" });
+  }
 
   return (
     <SidebarMenu>
@@ -73,35 +92,62 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <SparklesIcon />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
+            <Suspense fallback={<CreditLimitSummaryFallback />}>
+              <CreditLimitSummary />
+            </Suspense>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheckIcon />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCardIcon />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <BellIcon />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem disabled={isSigningOut} onSelect={() => void signOut()}>
               <LogOutIcon />
-              Log out
+              {isSigningOut ? "Logging out..." : "Log out"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+  );
+}
+
+function CreditLimitSummary() {
+  const { data: creditLimitDetails } = useSuspenseQuery(creditLimitSummaryQueryOptions());
+  const remainingPercent = Math.min(Math.max(creditLimitDetails.remainingPercent, 0), 100);
+  const remainingCredits = creditNumberFormatter.format(creditLimitDetails.remainingCredits);
+  const dailyCreditLimit = creditNumberFormatter.format(creditLimitDetails.dailyCreditLimit);
+
+  return (
+    <div className="px-2 py-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Credit limit</p>
+          <p className="text-xs text-muted-foreground">
+            {remainingCredits} / {dailyCreditLimit} credits left
+          </p>
+        </div>
+        <span className="text-sm font-medium tabular-nums">{remainingPercent}%</span>
+      </div>
+      <Progress value={remainingPercent} />
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <RefreshCwIcon className="size-3.5" />
+        <span>Resets daily at 12:00 AM UTC</span>
+      </div>
+    </div>
+  );
+}
+
+function CreditLimitSummaryFallback() {
+  return (
+    <div className="px-2 py-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Credit limit</p>
+          <p className="text-xs text-muted-foreground">Loading credits...</p>
+        </div>
+        <span className="text-sm font-medium text-muted-foreground tabular-nums">--%</span>
+      </div>
+      <Progress value={0} />
+      <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+        <RefreshCwIcon className="size-3.5" />
+        <span>Resets daily at 12:00 AM UTC</span>
+      </div>
+    </div>
   );
 }

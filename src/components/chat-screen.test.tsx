@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   createChatFromFirstMessage: vi.fn(),
   generateAndSaveChatTitle: vi.fn(),
   invalidate: vi.fn(),
+  invalidateQueries: vi.fn(),
   navigate: vi.fn(),
   sendMessage: vi.fn(),
   stop: vi.fn(),
@@ -21,11 +22,19 @@ vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ invalidate: mocks.invalidate }),
 }));
 
+vi.mock("@tanstack/react-query", () => ({
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+}));
+
 vi.mock("@ai-sdk/react", () => ({ useChat: mocks.useChat }));
 
 vi.mock("#/lib/chat-functions.ts", () => ({
   createChatFromFirstMessage: mocks.createChatFromFirstMessage,
   generateAndSaveChatTitle: mocks.generateAndSaveChatTitle,
+}));
+
+vi.mock("#/lib/credit-limit-query.ts", () => ({
+  creditLimitSummaryQueryKey: ["credit-limit-summary"],
 }));
 
 vi.mock("ai", async (importOriginal) => {
@@ -111,10 +120,9 @@ vi.mock("#/components/ai-elements/prompt-input", () => {
       </div>
     ),
     PromptInputSelectContent: ({ children }: React.PropsWithChildren) => <>{children}</>,
-    PromptInputSelectItem: ({
-      children,
-      value,
-    }: React.PropsWithChildren<{ value: string }>) => <option value={value}>{children}</option>,
+    PromptInputSelectItem: ({ children, value }: React.PropsWithChildren<{ value: string }>) => (
+      <option value={value}>{children}</option>
+    ),
     PromptInputSelectTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
     PromptInputSelectValue: ({ children }: React.PropsWithChildren) => <>{children}</>,
     PromptInputSubmit: ({
@@ -190,12 +198,7 @@ describe("ChatScreen", () => {
   });
 
   it("renders model configuration errors and disables submitting", () => {
-    render(
-      <ChatScreen
-        llmConfig={null}
-        modelsError="Model configuration could not be loaded."
-      />,
-    );
+    render(<ChatScreen llmConfig={null} modelsError="Model configuration could not be loaded." />);
 
     expect(
       screen.getByRole("heading", { name: "Model configuration unavailable" }),
@@ -234,6 +237,9 @@ describe("ChatScreen", () => {
       JSON.stringify({ modelId: "model-default" }),
     );
     expect(mocks.invalidate).toHaveBeenCalled();
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["credit-limit-summary"],
+    });
     expect(mocks.navigate).toHaveBeenCalledWith({
       params: { chatId },
       to: "/chats/$chatId",
@@ -269,6 +275,9 @@ describe("ChatScreen", () => {
         },
       },
     );
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["credit-limit-summary"],
+    });
   });
 
   it("auto-submits a saved first message when loading a newly created chat", async () => {
@@ -288,6 +297,9 @@ describe("ChatScreen", () => {
       });
     });
     expect(window.sessionStorage.getItem(`ubichat:auto-submit:${chatId}`)).toBeNull();
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["credit-limit-summary"],
+    });
     expect(mocks.generateAndSaveChatTitle).toHaveBeenCalledWith({ data: { chatId } });
   });
 
