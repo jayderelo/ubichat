@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { UIMessage } from "ai";
 import { chat, chatMessage, type Chat } from "../../database/schema/app-schema";
 import { db } from "#/lib/db.ts";
@@ -128,6 +128,14 @@ export async function listChatsByUser(userId: string) {
     .from(chat)
     .where(and(eq(chat.userId, userId), isNull(chat.archivedAt)))
     .orderBy(desc(chat.updatedAt));
+}
+
+export async function listArchivedChatsByUser(userId: string) {
+  return await db
+    .select()
+    .from(chat)
+    .where(and(eq(chat.userId, userId), isNotNull(chat.archivedAt)))
+    .orderBy(desc(chat.archivedAt));
 }
 
 export async function getChatForUser({ chatId, userId }: ChatIdInput) {

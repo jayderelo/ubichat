@@ -6,7 +6,9 @@ import { auth } from "#/lib/auth.ts";
 import { generateChatTitle } from "#/lib/chat-title.ts";
 import {
   createChatWithInitialMessage,
+  deleteChat,
   getChatForUser,
+  listArchivedChatsByUser,
   listChatMessages,
   listChatsByUser,
   updateChat,
@@ -33,7 +35,9 @@ export const chatActions = createChatActionsCore({
   getLlmConfig,
   getLlmModelConfig,
   getPublicLlmConfig,
+  deleteChat,
   listChatMessages,
+  listArchivedChatsByUser,
   listChatsByUser,
   notFound,
   requireSession,

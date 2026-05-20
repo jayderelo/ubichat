@@ -23,3 +23,15 @@ export const generateAndSaveChatTitle = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     return await chatActions.generateAndSaveChatTitle(data);
   });
+
+export const archiveChat = createServerFn({ method: "POST" })
+  .inputValidator(chatIdSchema)
+  .handler(async ({ data }) => {
+    return await chatActions.archiveChat(data);
+  });
+
+export const deleteChatRecord = createServerFn({ method: "POST" })
+  .inputValidator(chatIdSchema)
+  .handler(async ({ data }) => {
+    return await chatActions.deleteChat(data);
+  });

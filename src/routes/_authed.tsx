@@ -28,14 +28,16 @@ export const Route = createFileRoute("/_authed")({
 });
 
 function AuthedLayout() {
-  const { chats, user } = Route.useLoaderData();
+  const { archivedChats, chats, user } = Route.useLoaderData();
   const location = useLocation();
   const currentChatId = /^\/chats\/([^/]+)$/.exec(location.pathname)?.[1];
-  const currentChat = currentChatId ? chats.find((chat) => chat.id === currentChatId) : null;
+  const currentChat = currentChatId
+    ? [...chats, ...archivedChats].find((chat) => chat.id === currentChatId)
+    : null;
 
   return (
     <SidebarProvider>
-      <AppSidebar chats={chats} user={user} />
+      <AppSidebar archivedChats={archivedChats} chats={chats} user={user} />
       <SidebarInset className="h-svh min-h-0 overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-10">
           <div className="flex min-w-0 items-center gap-2.5 px-3">

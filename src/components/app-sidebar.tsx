@@ -30,11 +30,12 @@ type SidebarUser = {
 };
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  archivedChats: SidebarChat[];
   chats: SidebarChat[];
   user: SidebarUser;
 };
 
-export function AppSidebar({ chats, user, ...props }: AppSidebarProps) {
+export function AppSidebar({ archivedChats, chats, user, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -65,7 +66,7 @@ export function AppSidebar({ chats, user, ...props }: AppSidebarProps) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarGroup>
-        <NavChats chats={chats} />
+        <NavChats archivedChats={archivedChats} chats={chats} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

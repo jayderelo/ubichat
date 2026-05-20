@@ -29,13 +29,30 @@ function createDeps() {
       }),
     ),
     getPublicLlmConfig: vi.fn(async () => createPublicLlmConfig()),
+    deleteChat: vi.fn(async () => true),
     listChatMessages: vi.fn(async () => [createTextMessage({ text: "First prompt" })]),
+    listArchivedChatsByUser: vi.fn(async () => [
+      createChatRecord({
+        archivedAt: new Date("2026-01-03T00:00:00.000Z"),
+        id: "018f03d9-d8f7-7c3b-9a69-a8e8d99b6572",
+        title: "Archived chat",
+      }),
+    ]),
     listChatsByUser: vi.fn(async () => [createChatRecord({ title: null })]),
     notFound: vi.fn(() => {
       throw new Error("Not found");
     }),
     requireSession: vi.fn<() => Promise<SessionLike>>(async () => createSession()),
-    updateChat: vi.fn(async ({ title }: { title: string }) => ({ title })),
+    updateChat: vi.fn(
+      async ({
+        title,
+      }: {
+        archivedAt?: Date | null;
+        chatId: string;
+        title?: string;
+        userId: string;
+      }): Promise<{ title: string | null } | null> => ({ title: title ?? null }),
+    ),
   };
 }
 
@@ -50,6 +67,16 @@ describe("chat actions core", () => {
     const actions = createChatActionsCore(deps);
 
     await expect(actions.loadAuthedLayoutData()).resolves.toEqual({
+      archivedChats: [
+        {
+          archivedAt: "2026-01-03T00:00:00.000Z",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          id: "018f03d9-d8f7-7c3b-9a69-a8e8d99b6572",
+          modelId: "model-default",
+          title: "Archived chat",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
       chats: [
         {
           archivedAt: null,
@@ -67,6 +94,7 @@ describe("chat actions core", () => {
       },
     });
     expect(deps.listChatsByUser).toHaveBeenCalledWith(userId);
+    expect(deps.listArchivedChatsByUser).toHaveBeenCalledWith(userId);
   });
 
   it("creates a chat from the first message using the default model", async () => {
@@ -164,5 +192,37 @@ describe("chat actions core", () => {
       title: "Existing chat",
     });
     expect(deps.updateChat).not.toHaveBeenCalled();
+  });
+
+  it("archives an owned chat", async () => {
+    const actions = createChatActionsCore(deps);
+
+    await expect(actions.archiveChat({ chatId })).resolves.toEqual({ chatId });
+    expect(deps.updateChat).toHaveBeenCalledWith({
+      archivedAt: expect.any(Date),
+      chatId,
+      userId,
+    });
+  });
+
+  it("throws notFound when archive ownership check fails", async () => {
+    deps.updateChat.mockResolvedValue(null);
+    const actions = createChatActionsCore(deps);
+
+    await expect(actions.archiveChat({ chatId })).rejects.toThrow("Not found");
+  });
+
+  it("deletes an owned chat", async () => {
+    const actions = createChatActionsCore(deps);
+
+    await expect(actions.deleteChat({ chatId })).resolves.toEqual({ chatId });
+    expect(deps.deleteChat).toHaveBeenCalledWith({ chatId, userId });
+  });
+
+  it("throws notFound when delete ownership check fails", async () => {
+    deps.deleteChat.mockResolvedValue(false);
+    const actions = createChatActionsCore(deps);
+
+    await expect(actions.deleteChat({ chatId })).rejects.toThrow("Not found");
   });
 });

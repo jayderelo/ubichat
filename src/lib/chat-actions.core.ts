@@ -52,13 +52,16 @@ type ChatActionsDeps = {
   getLlmConfig: () => Promise<{ defaultModelId: string }>;
   getLlmModelConfig: (modelId: string) => Promise<unknown | undefined>;
   getPublicLlmConfig: () => Promise<PublicLlmConfig>;
+  deleteChat: (input: { chatId: string; userId: string }) => Promise<boolean>;
   listChatMessages: (input: { chatId: string; userId: string }) => Promise<UIMessage[] | null>;
+  listArchivedChatsByUser: (userId: string) => Promise<ChatRecord[]>;
   listChatsByUser: (userId: string) => Promise<ChatRecord[]>;
   notFound: () => unknown;
   requireSession: () => Promise<SessionLike>;
   updateChat: (input: {
+    archivedAt?: Date | null;
     chatId: string;
-    title: string;
+    title?: string;
     userId: string;
   }) => Promise<{ title: string | null } | null>;
 };
@@ -152,9 +155,13 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
 
     async loadAuthedLayoutData() {
       const session = await deps.requireSession();
-      const chats = await deps.listChatsByUser(session.user.id);
+      const [chats, archivedChats] = await Promise.all([
+        deps.listChatsByUser(session.user.id),
+        deps.listArchivedChatsByUser(session.user.id),
+      ]);
 
       return {
+        archivedChats: archivedChats.map(serializeChatSummary),
         chats: chats.map(serializeChatSummary),
         user: {
           avatar: session.user.image ?? "",
@@ -189,6 +196,35 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
         llmConfig: await deps.getPublicLlmConfig(),
         messagesJson: JSON.stringify(messages),
       };
+    },
+
+    async archiveChat(data: z.infer<typeof chatIdSchema>) {
+      const session = await deps.requireSession();
+      const updatedChat = await deps.updateChat({
+        archivedAt: new Date(),
+        chatId: data.chatId,
+        userId: session.user.id,
+      });
+
+      if (!updatedChat) {
+        throw deps.notFound();
+      }
+
+      return { chatId: data.chatId };
+    },
+
+    async deleteChat(data: z.infer<typeof chatIdSchema>) {
+      const session = await deps.requireSession();
+      const didDelete = await deps.deleteChat({
+        chatId: data.chatId,
+        userId: session.user.id,
+      });
+
+      if (!didDelete) {
+        throw deps.notFound();
+      }
+
+      return { chatId: data.chatId };
     },
   };
 }
