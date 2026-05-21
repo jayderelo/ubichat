@@ -214,7 +214,17 @@ async function ensureCurrentUsagePeriod(userId: string) {
       .limit(1);
 
     if (currentPeriod && currentPeriod.periodStart <= now && now < currentPeriod.periodEnd) {
-      return currentPeriod;
+      if (currentPeriod.dailyCreditLimit === dailyCreditLimit) {
+        return currentPeriod;
+      }
+
+      const [updatedPeriod] = await tx
+        .update(usagePeriod)
+        .set({ dailyCreditLimit, updatedAt: now })
+        .where(eq(usagePeriod.id, currentPeriod.id))
+        .returning();
+
+      return updatedPeriod ?? { ...currentPeriod, dailyCreditLimit, updatedAt: now };
     }
 
     if (currentPeriod) {

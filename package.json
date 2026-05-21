@@ -10,7 +10,7 @@
     "build": "vite build",
     "start": "node .output/server/index.mjs",
     "preview": "dotenvx run -- vite preview",
-    "prepare": "simple-git-hooks",
+    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production' && process.env.npm_config_production !== 'true') require('child_process').execFileSync('simple-git-hooks', { shell: process.platform === 'win32', stdio: 'inherit' })\"",
     "test": "vitest run",
     "typecheck": "tsc",
     "lint": "oxlint",
