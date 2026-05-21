@@ -1,10 +1,12 @@
 import type { UIMessage } from "ai";
 import { z } from "zod";
 import { createFallbackChatTitle } from "#/lib/chat-title.ts";
+import { getReasoningModeConfig, type LlmModelConfig } from "#/lib/llm-config.ts";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 
 export const createChatSchema = z.object({
   modelId: z.string().min(1).optional(),
+  reasoningModeId: z.string().min(1).optional(),
   text: z.string().trim().min(1).max(32_000),
 });
 
@@ -12,11 +14,15 @@ export const chatIdSchema = z.object({
   chatId: z.uuid({ version: "v7" }),
 });
 
+export const updateUserModelSettingsSchema = z.object({
+  modelId: z.string().min(1),
+  reasoningModeId: z.string().min(1).optional(),
+});
+
 export type ChatRecord = {
   archivedAt: Date | null;
   createdAt: Date;
   id: string;
-  modelId: string | null;
   title: string | null;
   updatedAt: Date;
 };
@@ -39,6 +45,7 @@ type ChatActionsDeps = {
   createChatWithInitialMessage: (input: {
     message: UIMessage;
     modelId: string;
+    reasoningModeId?: string | null;
     title: string;
     userId: string;
   }) => Promise<SavedInitialMessage>;
@@ -49,9 +56,19 @@ type ChatActionsDeps = {
   }) => Promise<string>;
   generateId: () => string;
   getChatForUser: (input: { chatId: string; userId: string }) => Promise<ChatRecord | null>;
+  getLatestUserMessageSelection: (input: {
+    chatId: string;
+    userId: string;
+  }) => Promise<{ modelId: string | null; reasoningModeId: string | null } | null>;
   getLlmConfig: () => Promise<{ defaultModelId: string }>;
-  getLlmModelConfig: (modelId: string) => Promise<unknown | undefined>;
+  getLlmModelConfig: (modelId: string) => Promise<LlmModelConfig | undefined>;
   getPublicLlmConfig: () => Promise<PublicLlmConfig>;
+  getUserModelSettings: (userId: string) => Promise<NonNullable<PublicLlmConfig["userSettings"]>>;
+  upsertUserModelSettings: (input: {
+    modelId: string;
+    reasoningModeId?: string | null;
+    userId: string;
+  }) => Promise<unknown>;
   deleteChat: (input: { chatId: string; userId: string }) => Promise<boolean>;
   listChatMessages: (input: { chatId: string; userId: string }) => Promise<UIMessage[] | null>;
   listArchivedChatsByUser: (userId: string) => Promise<ChatRecord[]>;
@@ -73,7 +90,6 @@ export function serializeChatSummary(chat: ChatRecord) {
     archivedAt: chat.archivedAt?.toISOString() ?? null,
     createdAt: chat.createdAt.toISOString(),
     id: chat.id,
-    modelId: chat.modelId,
     title: chat.title ?? "New chat",
     updatedAt: chat.updatedAt.toISOString(),
   };
@@ -99,10 +115,17 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
         throw new Error("Unknown model");
       }
 
+      const reasoningMode = getReasoningModeConfig(modelConfig, data.reasoningModeId);
+
+      if (data.reasoningModeId && !reasoningMode) {
+        throw new Error("Unsupported reasoning mode");
+      }
+
       const message = createUserMessage(data.text, deps.generateId);
       const created = await deps.createChatWithInitialMessage({
         message,
         modelId,
+        reasoningModeId: reasoningMode?.id,
         title: createFallbackChatTitle(data.text),
         userId: session.user.id,
       });
@@ -111,6 +134,48 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
         chatId: created.chat.id,
         messageId: created.message.id,
         modelId,
+        reasoningModeId: reasoningMode?.id,
+      };
+    },
+
+    async loadNewChatRouteData() {
+      const session = await deps.requireSession();
+      const [llmConfig, userSettings] = await Promise.all([
+        deps.getPublicLlmConfig(),
+        deps.getUserModelSettings(session.user.id),
+      ]);
+
+      return {
+        llmConfig: {
+          ...llmConfig,
+          userSettings,
+        },
+      };
+    },
+
+    async updateUserModelSettings(data: z.infer<typeof updateUserModelSettingsSchema>) {
+      const session = await deps.requireSession();
+      const modelConfig = await deps.getLlmModelConfig(data.modelId);
+
+      if (!modelConfig) {
+        throw new Error("Unknown model");
+      }
+
+      const reasoningMode = getReasoningModeConfig(modelConfig, data.reasoningModeId);
+
+      if (data.reasoningModeId && !reasoningMode) {
+        throw new Error("Unsupported reasoning mode");
+      }
+
+      await deps.upsertUserModelSettings({
+        modelId: data.modelId,
+        reasoningModeId: reasoningMode?.id,
+        userId: session.user.id,
+      });
+
+      return {
+        modelId: data.modelId,
+        reasoningModeId: reasoningMode?.id ?? null,
       };
     },
 
@@ -193,6 +258,10 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
 
       return {
         chat: serializeChatSummary(existingChat),
+        initialSelection: await deps.getLatestUserMessageSelection({
+          chatId: data.chatId,
+          userId: session.user.id,
+        }),
         llmConfig: await deps.getPublicLlmConfig(),
         messagesJson: JSON.stringify(messages),
       };

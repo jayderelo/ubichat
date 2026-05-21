@@ -8,12 +8,14 @@ import {
   createChatWithInitialMessage,
   deleteChat,
   getChatForUser,
+  getLatestUserMessageSelection,
   listArchivedChatsByUser,
   listChatMessages,
   listChatsByUser,
   updateChat,
 } from "#/lib/chats.ts";
 import { getLlmConfig, getLlmModelConfig, getPublicLlmConfig } from "#/lib/llm-config.ts";
+import { getUserModelSettings, upsertUserModelSettings } from "#/lib/user-settings.ts";
 
 export async function requireSession(): Promise<SessionLike> {
   const session = await auth.api.getSession({
@@ -32,14 +34,17 @@ export const chatActions = createChatActionsCore({
   generateChatTitle,
   generateId,
   getChatForUser,
+  getLatestUserMessageSelection,
   getLlmConfig,
   getLlmModelConfig,
   getPublicLlmConfig,
+  getUserModelSettings,
   deleteChat,
   listChatMessages,
   listArchivedChatsByUser,
   listChatsByUser,
   notFound,
   requireSession,
+  upsertUserModelSettings,
   updateChat,
 });

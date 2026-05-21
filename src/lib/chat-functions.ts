@@ -1,15 +1,29 @@
 import { createServerFn } from "@tanstack/react-start";
-import { chatIdSchema, createChatSchema } from "#/lib/chat-actions.core.ts";
+import {
+  chatIdSchema,
+  createChatSchema,
+  updateUserModelSettingsSchema,
+} from "#/lib/chat-actions.core.ts";
 import { chatActions } from "#/lib/chat-actions.server.ts";
 
 export const loadAuthedLayoutData = createServerFn({ method: "GET" }).handler(async () => {
   return await chatActions.loadAuthedLayoutData();
 });
 
+export const loadNewChatRouteData = createServerFn({ method: "GET" }).handler(async () => {
+  return await chatActions.loadNewChatRouteData();
+});
+
 export const createChatFromFirstMessage = createServerFn({ method: "POST" })
   .inputValidator(createChatSchema)
   .handler(async ({ data }) => {
     return await chatActions.createChatFromFirstMessage(data);
+  });
+
+export const updateUserModelSettings = createServerFn({ method: "POST" })
+  .inputValidator(updateUserModelSettingsSchema)
+  .handler(async ({ data }) => {
+    return await chatActions.updateUserModelSettings(data);
   });
 
 export const loadChatRouteData = createServerFn({ method: "GET" })

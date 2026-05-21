@@ -13,7 +13,7 @@ import { archiveChat, deleteChatRecord } from "#/lib/chat-functions.ts";
 import { cn } from "#/lib/utils.ts";
 import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { ArchiveIcon, ChevronRightIcon, MessageSquareTextIcon, Trash2Icon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "./ui/collapsible";
 
 type ChatSummary = {
@@ -50,6 +50,9 @@ function ChatActionButton({
         isConfirming ? "w-15" : "w-7",
       )}
       onClick={() => onAction(chatId, kind)}
+      data-chat-action-button
+      data-chat-action-id={chatId}
+      data-chat-action-kind={kind}
       title={isConfirming ? "confirm" : label}
       type="button"
     >
@@ -110,6 +113,48 @@ export function NavChats({
   const router = useRouter();
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const currentChatId = /^\/chats\/([^/]+)$/.exec(location.pathname)?.[1];
+
+  useEffect(() => {
+    if (!pendingAction) {
+      return;
+    }
+
+    const activePendingAction = pendingAction;
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        setPendingAction(null);
+        return;
+      }
+
+      const actionButton = target.closest("[data-chat-action-button]");
+
+      if (
+        actionButton?.getAttribute("data-chat-action-id") === activePendingAction.chatId &&
+        actionButton.getAttribute("data-chat-action-kind") === activePendingAction.kind
+      ) {
+        return;
+      }
+
+      setPendingAction(null);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setPendingAction(null);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [pendingAction]);
 
   async function handleAction(chatId: string, kind: "archive" | "delete") {
     if (pendingAction?.chatId !== chatId || pendingAction.kind !== kind) {

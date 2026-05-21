@@ -1,11 +1,12 @@
 import type { LanguageModel, LanguageModelUsage, ModelMessage, UIMessage } from "ai";
 import { z } from "zod";
-import type { LlmModelConfig } from "#/lib/llm-config.ts";
+import { getReasoningModeConfig, type LlmModelConfig } from "#/lib/llm-config.ts";
 
 export const chatRequestSchema = z.object({
   chatId: z.uuid({ version: "v7" }),
   modelId: z.string().min(1).optional(),
   messages: z.unknown(),
+  reasoningModeId: z.string().min(1).optional(),
 });
 
 type SessionLike = {
@@ -25,7 +26,8 @@ type UsageReservation =
       reservedCredits: number;
     };
 
-type ChatProviderOptions = Record<string, Record<string, boolean | string | string[]>>;
+type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
+type ChatProviderOptions = Record<string, { [key: string]: JsonValue }>;
 
 export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
   assertTextOnlyMessages: (messages: UIMessage[]) => void;
@@ -42,6 +44,8 @@ export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
     messages: UIMessage[];
     modelConfig: ModelConfig;
     modelId: string;
+    reasoningModeId?: string | null;
+    submittedUserMessageId?: string;
     usage: LanguageModelUsage;
     userId: string;
   }) => Promise<unknown>;
@@ -56,8 +60,14 @@ export type ChatApiDeps<ModelConfig extends LlmModelConfig = LlmModelConfig> = {
     estimatedInputTokens: number;
     kind: "chat";
     modelConfig: ModelConfig;
+    reasoningModeId?: string | null;
     userId: string;
   }) => Promise<UsageReservation>;
+  upsertUserModelSettings: (input: {
+    modelId: string;
+    reasoningModeId?: string | null;
+    userId: string;
+  }) => Promise<unknown>;
   streamText: (input: {
     experimental_onStepStart: () => Promise<void>;
     maxOutputTokens: number;
@@ -268,25 +278,17 @@ function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
 }
 
-function createProviderOptions(modelConfig: LlmModelConfig): ChatProviderOptions | undefined {
-  if (!modelConfig.capabilities.reasoning) {
+function createProviderOptions(
+  modelConfig: LlmModelConfig,
+  reasoningModeId?: string | null,
+): ChatProviderOptions | undefined {
+  const reasoningMode = getReasoningModeConfig(modelConfig, reasoningModeId);
+
+  if (!reasoningMode?.providerOptions) {
     return undefined;
   }
 
-  if (modelConfig.provider === "azure-openai-responses") {
-    return {
-      azure: {
-        reasoningEffort: "medium",
-        reasoningSummary: "auto",
-      },
-    };
-  }
-
-  return {
-    azureFoundry: {
-      reasoningEffort: "medium",
-    },
-  };
+  return reasoningMode.providerOptions;
 }
 
 export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
@@ -320,6 +322,14 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
     if (!modelConfig) {
       return Response.json({ error: "Unknown model" }, { status: 400 });
     }
+
+    const reasoningMode = getReasoningModeConfig(modelConfig, parsedBody.data.reasoningModeId);
+
+    if (parsedBody.data.reasoningModeId && !reasoningMode) {
+      return Response.json({ error: "Unsupported reasoning mode" }, { status: 400 });
+    }
+
+    const reasoningModeId = reasoningMode?.id;
 
     const existingChat = await deps.getChatForUser({
       chatId: parsedBody.data.chatId,
@@ -368,6 +378,7 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
       estimatedInputTokens: deps.estimateInputTokens(authoritativeMessages),
       kind: "chat",
       modelConfig,
+      reasoningModeId,
       userId: session.user.id,
     });
 
@@ -383,7 +394,13 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
     }
 
     let result: ReturnType<typeof deps.streamText>;
-    const providerOptions = createProviderOptions(modelConfig);
+    await deps.upsertUserModelSettings({
+      modelId,
+      reasoningModeId,
+      userId: session.user.id,
+    });
+
+    const providerOptions = createProviderOptions(modelConfig, reasoningModeId);
 
     try {
       result = deps.streamText({
@@ -425,6 +442,9 @@ export function createChatApiHandler<ModelConfig extends LlmModelConfig>(
           messages: finishedMessages,
           modelConfig,
           modelId,
+          reasoningModeId,
+          submittedUserMessageId: authoritativeMessages.findLast((message) => message.role === "user")
+            ?.id,
           usage: await result.totalUsage,
           userId: session.user.id,
         });

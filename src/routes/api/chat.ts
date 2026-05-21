@@ -14,6 +14,7 @@ import {
 } from "#/lib/usage.ts";
 import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, validateUIMessages } from "ai";
+import { upsertUserModelSettings } from "#/lib/user-settings.ts";
 
 const handleChatPost = createChatApiHandler({
   assertTextOnlyMessages,
@@ -32,6 +33,7 @@ const handleChatPost = createChatApiHandler({
   releaseUsage,
   reserveUsage,
   streamText,
+  upsertUserModelSettings,
   validateUIMessages,
 });
 

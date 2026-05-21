@@ -11,23 +11,23 @@ type ChatIdInput = {
 type CreateChatInput = {
   userId: string;
   title?: string | null;
-  modelId?: string | null;
 };
 
 type UpdateChatInput = ChatIdInput & {
   title?: string | null;
-  modelId?: string | null;
   archivedAt?: Date | null;
 };
 
 type ChatMessageInput = {
   message: UIMessage;
   modelId?: string | null;
+  reasoningModeId?: string | null;
 };
 
 type ReplaceChatMessagesInput = ChatIdInput & {
   messages: UIMessage[];
   modelId?: string | null;
+  reasoningModeId?: string | null;
 };
 
 type AppendChatMessageInput = ChatIdInput & ChatMessageInput;
@@ -36,14 +36,13 @@ type CreateChatWithInitialMessageInput = CreateChatInput & ChatMessageInput;
 
 type ChatUpdateValues = {
   title?: string | null;
-  modelId?: string | null;
   archivedAt?: Date | null;
   updatedAt: Date;
 };
 
 function toChatMessageRow(
   chatId: string,
-  { message, modelId }: ChatMessageInput,
+  { message, modelId, reasoningModeId }: ChatMessageInput,
   position: number,
 ) {
   return {
@@ -51,6 +50,7 @@ function toChatMessageRow(
     message,
     modelId,
     position,
+    reasoningModeId,
     role: message.role,
     uiMessageId: message.id,
   };
@@ -65,10 +65,6 @@ function buildChatUpdateValues(input: UpdateChatInput): ChatUpdateValues {
     values.title = input.title;
   }
 
-  if ("modelId" in input) {
-    values.modelId = input.modelId;
-  }
-
   if ("archivedAt" in input) {
     values.archivedAt = input.archivedAt;
   }
@@ -80,7 +76,6 @@ export async function createChat(input: CreateChatInput) {
   const [createdChat] = await db
     .insert(chat)
     .values({
-      modelId: input.modelId,
       title: input.title,
       userId: input.userId,
     })
@@ -92,6 +87,7 @@ export async function createChat(input: CreateChatInput) {
 export async function createChatWithInitialMessage({
   message,
   modelId,
+  reasoningModeId,
   title,
   userId,
 }: CreateChatWithInitialMessageInput) {
@@ -99,7 +95,6 @@ export async function createChatWithInitialMessage({
     const [createdChat] = await tx
       .insert(chat)
       .values({
-        modelId,
         title,
         userId,
       })
@@ -111,7 +106,7 @@ export async function createChatWithInitialMessage({
 
     const [savedMessage] = await tx
       .insert(chatMessage)
-      .values(toChatMessageRow(createdChat.id, { message, modelId }, 0))
+      .values(toChatMessageRow(createdChat.id, { message, modelId, reasoningModeId }, 0))
       .returning();
 
     if (!savedMessage) {
@@ -171,6 +166,7 @@ export async function replaceChatMessages({
   chatId,
   messages,
   modelId,
+  reasoningModeId,
   userId,
 }: ReplaceChatMessagesInput) {
   return await db.transaction(async (tx) => {
@@ -187,7 +183,7 @@ export async function replaceChatMessages({
     await tx.delete(chatMessage).where(eq(chatMessage.chatId, chatId));
 
     const rows = messages.map((message, position) =>
-      toChatMessageRow(chatId, { message, modelId }, position),
+      toChatMessageRow(chatId, { message, modelId, reasoningModeId }, position),
     );
 
     const savedMessages =
@@ -206,6 +202,7 @@ export async function appendChatMessage({
   chatId,
   message,
   modelId,
+  reasoningModeId,
   userId,
 }: AppendChatMessageInput) {
   return await db.transaction(async (tx) => {
@@ -229,7 +226,7 @@ export async function appendChatMessage({
     const position = (existingMessages[0]?.position ?? -1) + 1;
     const [savedMessage] = await tx
       .insert(chatMessage)
-      .values(toChatMessageRow(chatId, { message, modelId }, position))
+      .values(toChatMessageRow(chatId, { message, modelId, reasoningModeId }, position))
       .returning();
 
     await tx
@@ -258,6 +255,26 @@ export async function listChatMessages({
     .orderBy(asc(chatMessage.position));
 
   return rows.map((row) => row.message);
+}
+
+export async function getLatestUserMessageSelection({ chatId, userId }: ChatIdInput) {
+  const existingChat = await getChatForUser({ chatId, userId });
+
+  if (!existingChat) {
+    return null;
+  }
+
+  const [row] = await db
+    .select({
+      modelId: chatMessage.modelId,
+      reasoningModeId: chatMessage.reasoningModeId,
+    })
+    .from(chatMessage)
+    .where(and(eq(chatMessage.chatId, chatId), eq(chatMessage.role, "user")))
+    .orderBy(desc(chatMessage.position))
+    .limit(1);
+
+  return row ?? { modelId: null, reasoningModeId: null };
 }
 
 export type { Chat };

@@ -23,7 +23,6 @@ export function createChatRecord(overrides: Partial<ChatRecord> = {}): ChatRecor
     archivedAt: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     id: chatId,
-    modelId: "model-default",
     title: "Existing chat",
     updatedAt: new Date("2026-01-02T00:00:00.000Z"),
     ...overrides,
@@ -71,6 +70,14 @@ export function createPublicLlmConfig(overrides: Partial<PublicLlmConfig> = {}):
         id: "model-other",
         lab: "openai",
         provider: "azure-openai-responses",
+        reasoning: {
+          defaultModeId: "high",
+          modes: [
+            { id: "low", label: "Low" },
+            { id: "medium", label: "Medium" },
+            { id: "high", label: "High" },
+          ],
+        },
       },
     ],
     ...overrides,

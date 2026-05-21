@@ -17,6 +17,41 @@
         "tools": true,
         "vision": false
       },
+      "reasoning": {
+        "defaultModeId": "high",
+        "modes": [
+          {
+            "id": "low",
+            "label": "Low",
+            "providerOptions": {
+              "azure": {
+                "reasoningEffort": "low",
+                "reasoningSummary": "auto"
+              }
+            }
+          },
+          {
+            "id": "medium",
+            "label": "Medium",
+            "providerOptions": {
+              "azure": {
+                "reasoningEffort": "medium",
+                "reasoningSummary": "auto"
+              }
+            }
+          },
+          {
+            "id": "high",
+            "label": "High",
+            "providerOptions": {
+              "azure": {
+                "reasoningEffort": "high",
+                "reasoningSummary": "auto"
+              }
+            }
+          }
+        ]
+      },
       "usage": {
         "cacheReadCreditWeight": 0.25,
         "cacheWriteCreditWeight": 1,
@@ -38,10 +73,38 @@
       "model": "Kimi-K2.6",
       "capabilities": {
         "chatCompletions": true,
-        "reasoning": false,
+        "reasoning": true,
         "responses": false,
         "tools": false,
         "vision": false
+      },
+      "reasoning": {
+        "defaultModeId": "on",
+        "modes": [
+          {
+            "id": "on",
+            "label": "Thinking on",
+            "providerOptions": {
+              "azureFoundry": {
+                "thinking": {
+                  "type": "enabled"
+                }
+              }
+            }
+          },
+          {
+            "id": "off",
+            "label": "Thinking off",
+            "consumesReasoningTokens": false,
+            "providerOptions": {
+              "azureFoundry": {
+                "thinking": {
+                  "type": "disabled"
+                }
+              }
+            }
+          }
+        ]
       },
       "usage": {
         "cacheReadCreditWeight": 0.25,
@@ -68,6 +131,39 @@
         "responses": false,
         "tools": false,
         "vision": false
+      },
+      "reasoning": {
+        "defaultModeId": "max",
+        "modes": [
+          {
+            "id": "non-think",
+            "label": "Non-think",
+            "consumesReasoningTokens": false,
+            "providerOptions": {
+              "azureFoundry": {
+                "reasoningEffort": "none"
+              }
+            }
+          },
+          {
+            "id": "high",
+            "label": "High",
+            "providerOptions": {
+              "azureFoundry": {
+                "reasoningEffort": "high"
+              }
+            }
+          },
+          {
+            "id": "max",
+            "label": "Max",
+            "providerOptions": {
+              "azureFoundry": {
+                "reasoningEffort": "max"
+              }
+            }
+          }
+        ]
       },
       "usage": {
         "cacheReadCreditWeight": 0.25,

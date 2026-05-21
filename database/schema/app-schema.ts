@@ -23,7 +23,6 @@ export const chat = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     title: text("title"),
-    modelId: text("model_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -52,6 +51,7 @@ export const chatMessage = pgTable(
     message: jsonb("message").$type<UIMessage>().notNull(),
     position: integer("position").notNull(),
     modelId: text("model_id"),
+    reasoningModeId: text("reasoning_mode_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -67,6 +67,19 @@ export const userUsageLimit = pgTable("user_usage_limit", {
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   dailyCreditLimit: integer("daily_credit_limit").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => /* @__PURE__ */ new Date())
+    .notNull(),
+});
+
+export const userSettings = pgTable("user_settings", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  selectedModelId: text("selected_model_id"),
+  reasoningPreferences: jsonb("reasoning_preferences").$type<Record<string, string>>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at")
     .defaultNow()
@@ -123,6 +136,7 @@ export const usageCall = pgTable(
     chatId: uuid("chat_id").references(() => chat.id, { onDelete: "set null" }),
     usageKind: text("usage_kind").$type<"chat" | "title">().notNull(),
     modelId: text("model_id").notNull(),
+    reasoningModeId: text("reasoning_mode_id"),
     status: text("status")
       .$type<"reserved" | "started" | "completed" | "released" | "charged_reserved">()
       .default("reserved")
@@ -173,3 +187,4 @@ export type ChatMessage = typeof chatMessage.$inferSelect;
 export type NewChatMessage = typeof chatMessage.$inferInsert;
 export type UsagePeriod = typeof usagePeriod.$inferSelect;
 export type UsageCall = typeof usageCall.$inferSelect;
+export type UserSettings = typeof userSettings.$inferSelect;

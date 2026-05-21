@@ -31,6 +31,10 @@ const validConfig = {
         tools: true,
         vision: false,
       },
+      reasoning: {
+        defaultModeId: "medium",
+        modes: [{ consumesReasoningTokens: true, id: "medium", label: "Medium" }],
+      },
       usage,
     },
     {
@@ -64,6 +68,10 @@ const validConfig = {
         responses: false,
         tools: false,
         vision: false,
+      },
+      reasoning: {
+        defaultModeId: "high",
+        modes: [{ consumesReasoningTokens: true, id: "high", label: "High" }],
       },
       usage,
     },

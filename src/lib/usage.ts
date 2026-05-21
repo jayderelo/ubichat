@@ -31,6 +31,7 @@ type ReserveUsageInput = {
   estimatedInputTokens: number;
   kind: UsageKind;
   modelConfig: LlmModelConfig;
+  reasoningModeId?: string | null;
   userId: string;
 };
 
@@ -44,6 +45,8 @@ type FinalizeChatInput = FinalizeUsageInput & {
   chatId: string;
   messages: UIMessage[];
   modelId: string;
+  reasoningModeId?: string | null;
+  submittedUserMessageId?: string;
   userId: string;
 };
 
@@ -156,7 +159,26 @@ export function assertWithinModelInputLimit(messages: UIMessage[], modelConfig: 
   }
 }
 
-export function estimateReservedCredits(messages: UIMessage[], modelConfig: LlmModelConfig) {
+function modelConsumesReasoningTokens(
+  modelConfig: LlmModelConfig,
+  reasoningModeId?: string | null,
+) {
+  if (!modelConfig.reasoning) {
+    return false;
+  }
+
+  const mode = modelConfig.reasoning.modes.find(
+    (candidate) => candidate.id === (reasoningModeId ?? modelConfig.reasoning?.defaultModeId),
+  );
+
+  return mode?.consumesReasoningTokens ?? true;
+}
+
+export function estimateReservedCredits(
+  messages: UIMessage[],
+  modelConfig: LlmModelConfig,
+  reasoningModeId?: string | null,
+) {
   const estimatedInputTokens = estimateInputTokens(messages);
   return calculateCredits(
     {
@@ -164,7 +186,9 @@ export function estimateReservedCredits(messages: UIMessage[], modelConfig: LlmM
       cacheWriteTokens: 0,
       inputTokens: estimatedInputTokens,
       outputTokens: modelConfig.usage.maxOutputTokens,
-      reasoningTokens: modelConfig.capabilities.reasoning ? modelConfig.usage.maxOutputTokens : 0,
+      reasoningTokens: modelConsumesReasoningTokens(modelConfig, reasoningModeId)
+        ? modelConfig.usage.maxOutputTokens
+        : 0,
     },
     modelConfig,
   );
@@ -244,6 +268,7 @@ export async function reserveUsage({
   estimatedInputTokens,
   kind,
   modelConfig,
+  reasoningModeId,
   userId,
 }: ReserveUsageInput) {
   const period = await ensureCurrentUsagePeriod(userId);
@@ -268,7 +293,7 @@ export async function reserveUsage({
           cacheWriteTokens: 0,
           inputTokens: estimatedInputTokens,
           outputTokens: modelConfig.usage.maxOutputTokens,
-          reasoningTokens: modelConfig.capabilities.reasoning
+          reasoningTokens: modelConsumesReasoningTokens(modelConfig, reasoningModeId)
             ? modelConfig.usage.maxOutputTokens
             : 0,
         },
@@ -292,6 +317,7 @@ export async function reserveUsage({
         chatId,
         modelId: modelConfig.id,
         periodId: lockedPeriod.id,
+        reasoningModeId,
         reservedCredits,
         usageKind: kind,
         userId,
@@ -392,6 +418,8 @@ export async function finalizeChatUsageAndMessages({
   finishReason,
   messages,
   modelId,
+  reasoningModeId,
+  submittedUserMessageId,
   usage,
   userId,
   callId,
@@ -426,16 +454,46 @@ export async function finalizeChatUsageAndMessages({
 
     const chargedCredits = calculateCredits(tokens, modelConfig);
 
+    const existingRows = await tx
+      .select({
+        modelId: chatMessage.modelId,
+        reasoningModeId: chatMessage.reasoningModeId,
+        role: chatMessage.role,
+        uiMessageId: chatMessage.uiMessageId,
+      })
+      .from(chatMessage)
+      .where(eq(chatMessage.chatId, chatId));
+    const existingMessageMetadata = new Map(
+      existingRows.map((row) => [
+        row.uiMessageId,
+        {
+          modelId: row.modelId,
+          reasoningModeId: row.reasoningModeId,
+          role: row.role,
+        },
+      ]),
+    );
+
     await tx.delete(chatMessage).where(eq(chatMessage.chatId, chatId));
     await tx.insert(chatMessage).values(
-      messagesForStorage.map((message, position) => ({
-        chatId,
-        message,
-        modelId,
-        position,
-        role: message.role,
-        uiMessageId: message.id,
-      })),
+      messagesForStorage.map((message, position) => {
+        const existingMetadata = existingMessageMetadata.get(message.id);
+        const isSubmittedUserMessage =
+          message.role === "user" &&
+          (!submittedUserMessageId || message.id === submittedUserMessageId);
+
+        return {
+          chatId,
+          message,
+          modelId: isSubmittedUserMessage ? modelId : existingMetadata?.modelId,
+          position,
+          reasoningModeId: isSubmittedUserMessage
+            ? reasoningModeId
+            : existingMetadata?.reasoningModeId,
+          role: message.role,
+          uiMessageId: message.id,
+        };
+      }),
     );
     await tx
       .update(chat)

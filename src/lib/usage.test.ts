@@ -30,6 +30,10 @@ const modelConfig = {
   lab: "deepseek",
   model: "test-model",
   provider: "azure-foundry-chat",
+  reasoning: {
+    defaultModeId: "high",
+    modes: [{ id: "high", label: "High" }],
+  },
   usage: {
     cacheReadCreditWeight: 0.25,
     cacheWriteCreditWeight: 1,

@@ -6,12 +6,26 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 
+const providerOptionsSchema = z.record(z.string(), z.record(z.string(), z.json()));
+
 const capabilitySchema = z.object({
   chatCompletions: z.boolean(),
   reasoning: z.boolean(),
   responses: z.boolean(),
   tools: z.boolean(),
   vision: z.boolean(),
+});
+
+const reasoningModeSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  consumesReasoningTokens: z.boolean().optional(),
+  providerOptions: providerOptionsSchema.optional(),
+});
+
+const reasoningConfigSchema = z.object({
+  defaultModeId: z.string().min(1),
+  modes: z.array(reasoningModeSchema).min(1),
 });
 
 const usageConfigSchema = z.object({
@@ -34,6 +48,7 @@ const modelConfigSchema = z.object({
   apiVersion: z.string().min(1),
   model: z.string().min(1),
   capabilities: capabilitySchema,
+  reasoning: reasoningConfigSchema.optional(),
   usage: usageConfigSchema,
 });
 
@@ -55,6 +70,45 @@ const llmConfigSchema = z
         });
       }
       ids.add(model.id);
+
+      if (model.capabilities.reasoning && !model.reasoning) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Reasoning model ${model.id} must define reasoning modes`,
+          path: ["models"],
+        });
+      }
+
+      if (!model.capabilities.reasoning && model.reasoning) {
+        ctx.addIssue({
+          code: "custom",
+          message: `Non-reasoning model ${model.id} cannot define reasoning modes`,
+          path: ["models"],
+        });
+      }
+
+      if (model.reasoning) {
+        const modeIds = new Set<string>();
+
+        for (const mode of model.reasoning.modes) {
+          if (modeIds.has(mode.id)) {
+            ctx.addIssue({
+              code: "custom",
+              message: `Duplicate reasoning mode id: ${mode.id}`,
+              path: ["models"],
+            });
+          }
+          modeIds.add(mode.id);
+        }
+
+        if (!modeIds.has(model.reasoning.defaultModeId)) {
+          ctx.addIssue({
+            code: "custom",
+            message: `defaultModeId must match a configured reasoning mode for ${model.id}`,
+            path: ["models"],
+          });
+        }
+      }
     }
 
     if (!ids.has(config.defaultModelId)) {
@@ -105,6 +159,15 @@ export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
       id,
       lab,
       provider,
+          reasoning: config.models.find((model) => model.id === id)?.reasoning
+        ? {
+            defaultModeId: config.models.find((model) => model.id === id)!.reasoning!
+              .defaultModeId,
+            modes: config.models
+              .find((model) => model.id === id)!
+              .reasoning!.modes.map(({ id: modeId, label }) => ({ id: modeId, label })),
+          }
+        : undefined,
     })),
   };
 }
@@ -117,6 +180,18 @@ export async function getLlmModelConfig(modelId: string) {
 export async function getTitleLlmModelConfig() {
   const config = await getLlmConfig();
   return config.models.find((model) => model.id === config.titleModelId);
+}
+
+export function getReasoningModeConfig(
+  modelConfig: LlmModelConfig,
+  reasoningModeId?: string | null,
+) {
+  if (!modelConfig.reasoning) {
+    return undefined;
+  }
+
+  const modeId = reasoningModeId ?? modelConfig.reasoning.defaultModeId;
+  return modelConfig.reasoning.modes.find((mode) => mode.id === modeId);
 }
 
 function getAzureFoundryKey() {

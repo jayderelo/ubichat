@@ -4,6 +4,7 @@ import {
   type ChatRecord,
   type SessionLike,
 } from "#/lib/chat-actions.core.ts";
+import type { LlmModelConfig } from "#/lib/llm-config.ts";
 import {
   chatId,
   createChatRecord,
@@ -14,6 +15,33 @@ import {
 } from "#/test/factories.ts";
 
 function createDeps() {
+  const modelConfig = (modelId: string): LlmModelConfig => ({
+    apiVersion: "2025-04-01-preview",
+    baseURL: "https://example.com",
+    capabilities: {
+      chatCompletions: true,
+      reasoning: false,
+      responses: false,
+      tools: false,
+      vision: false,
+    },
+    displayName: "Test Model",
+    id: modelId,
+    lab: "openai",
+    model: modelId,
+    provider: "azure-foundry-chat",
+    usage: {
+      cacheReadCreditWeight: 0.25,
+      cacheWriteCreditWeight: 1,
+      inputCreditWeight: 1,
+      maxInputBytes: 100_000,
+      maxOutputTokens: 512,
+      outputCreditWeight: 2,
+      reasoningCreditWeight: 3,
+      reserveMultiplier: 1,
+    },
+  });
+
   return {
     createChatWithInitialMessage: vi.fn(async () => ({
       chat: { id: chatId },
@@ -22,13 +50,19 @@ function createDeps() {
     generateChatTitle: vi.fn(async () => "Generated title"),
     generateId: vi.fn(() => "generated-message-id"),
     getChatForUser: vi.fn<() => Promise<ChatRecord | null>>(async () => createChatRecord()),
+    getLatestUserMessageSelection: vi.fn(async () => ({
+      modelId: "model-other",
+      reasoningModeId: "medium",
+    })),
     getLlmConfig: vi.fn(async () => ({ defaultModelId: "model-default" })),
-    getLlmModelConfig: vi.fn<(modelId: string) => Promise<unknown | undefined>>(
-      async (modelId) => ({
-        id: modelId,
-      }),
+    getLlmModelConfig: vi.fn<(modelId: string) => Promise<LlmModelConfig | undefined>>(
+      async (modelId) => modelConfig(modelId),
     ),
     getPublicLlmConfig: vi.fn(async () => createPublicLlmConfig()),
+    getUserModelSettings: vi.fn(async () => ({
+      reasoningPreferences: {},
+      selectedModelId: null,
+    })),
     deleteChat: vi.fn(async () => true),
     listChatMessages: vi.fn(async () => [createTextMessage({ text: "First prompt" })]),
     listArchivedChatsByUser: vi.fn(async () => [
@@ -43,6 +77,7 @@ function createDeps() {
       throw new Error("Not found");
     }),
     requireSession: vi.fn<() => Promise<SessionLike>>(async () => createSession()),
+    upsertUserModelSettings: vi.fn(async () => undefined),
     updateChat: vi.fn(
       async ({
         title,
@@ -72,7 +107,6 @@ describe("chat actions core", () => {
           archivedAt: "2026-01-03T00:00:00.000Z",
           createdAt: "2026-01-01T00:00:00.000Z",
           id: "018f03d9-d8f7-7c3b-9a69-a8e8d99b6572",
-          modelId: "model-default",
           title: "Archived chat",
           updatedAt: "2026-01-02T00:00:00.000Z",
         },
@@ -82,7 +116,6 @@ describe("chat actions core", () => {
           archivedAt: null,
           createdAt: "2026-01-01T00:00:00.000Z",
           id: chatId,
-          modelId: "model-default",
           title: "New chat",
           updatedAt: "2026-01-02T00:00:00.000Z",
         },

@@ -24,6 +24,11 @@ import {
   PromptInput,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputSelect,
+  PromptInputSelectContent,
+  PromptInputSelectItem,
+  PromptInputSelectTrigger,
+  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -31,7 +36,11 @@ import {
 } from "#/components/ai-elements/prompt-input";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "#/components/ai-elements/reasoning";
 import { Button } from "#/components/ui/button.tsx";
-import { createChatFromFirstMessage, generateAndSaveChatTitle } from "#/lib/chat-functions.ts";
+import {
+  createChatFromFirstMessage,
+  generateAndSaveChatTitle,
+  updateUserModelSettings,
+} from "#/lib/chat-functions.ts";
 import { creditLimitSummaryQueryKey } from "#/lib/credit-limit-query.ts";
 import type { PublicLlmConfig } from "#/lib/llm-types.ts";
 import { useChat } from "@ai-sdk/react";
@@ -45,12 +54,14 @@ const AUTO_SUBMIT_KEY_PREFIX = "ubichat:auto-submit:";
 
 type AutoSubmitPayload = {
   modelId: string;
+  reasoningModeId?: string | null;
 };
 
 type ChatScreenProps = {
   chatId?: string;
   initialModelId?: string | null;
   initialMessages?: UIMessage[];
+  initialReasoningModeId?: string | null;
   llmConfig: PublicLlmConfig | null;
   modelsError?: string | null;
 };
@@ -67,7 +78,53 @@ function getInitialSelectedModelId(
     return initialModelId;
   }
 
+  if (
+    llmConfig.userSettings?.selectedModelId &&
+    llmConfig.models.some((model) => model.id === llmConfig.userSettings?.selectedModelId)
+  ) {
+    return llmConfig.userSettings.selectedModelId;
+  }
+
   return llmConfig.defaultModelId;
+}
+
+function getSelectedModel(llmConfig: PublicLlmConfig | null, modelId: string) {
+  return llmConfig?.models.find((model) => model.id === modelId);
+}
+
+function getReasoningModeId({
+  initialReasoningModeId,
+  llmConfig,
+  modelId,
+  useSavedPreference = true,
+}: {
+  initialReasoningModeId?: string | null;
+  llmConfig: PublicLlmConfig | null;
+  modelId: string;
+  useSavedPreference?: boolean;
+}) {
+  const model = getSelectedModel(llmConfig, modelId);
+
+  if (!model?.reasoning) {
+    return "";
+  }
+
+  if (
+    initialReasoningModeId &&
+    model.reasoning.modes.some((mode) => mode.id === initialReasoningModeId)
+  ) {
+    return initialReasoningModeId;
+  }
+
+  const savedModeId = useSavedPreference
+    ? llmConfig?.userSettings?.reasoningPreferences[modelId]
+    : undefined;
+
+  if (savedModeId && model.reasoning.modes.some((mode) => mode.id === savedModeId)) {
+    return savedModeId;
+  }
+
+  return model.reasoning.defaultModeId;
 }
 
 function readAutoSubmitPayload(chatId: string) {
@@ -91,6 +148,7 @@ export function ChatScreen({
   chatId,
   initialModelId,
   initialMessages = [],
+  initialReasoningModeId,
   llmConfig,
   modelsError,
 }: ChatScreenProps) {
@@ -100,6 +158,14 @@ export function ChatScreen({
   const hasAutoSubmitted = useRef(false);
   const [selectedModelId, setSelectedModelId] = useState(() =>
     getInitialSelectedModelId(llmConfig, initialModelId),
+  );
+  const [selectedReasoningModeId, setSelectedReasoningModeId] = useState(() =>
+    getReasoningModeId({
+      initialReasoningModeId,
+      llmConfig,
+      modelId: getInitialSelectedModelId(llmConfig, initialModelId),
+      useSavedPreference: Boolean(chatId),
+    }),
   );
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -116,8 +182,17 @@ export function ChatScreen({
   });
 
   useEffect(() => {
-    setSelectedModelId(getInitialSelectedModelId(llmConfig, initialModelId));
-  }, [chatId, initialModelId, llmConfig]);
+    const nextModelId = getInitialSelectedModelId(llmConfig, initialModelId);
+    setSelectedModelId(nextModelId);
+    setSelectedReasoningModeId(
+      getReasoningModeId({
+        initialReasoningModeId,
+        llmConfig,
+        modelId: nextModelId,
+        useSavedPreference: Boolean(chatId),
+      }),
+    );
+  }, [chatId, initialModelId, initialReasoningModeId, llmConfig]);
 
   useEffect(() => {
     if (!chatId || hasAutoSubmitted.current || typeof window === "undefined") {
@@ -132,10 +207,12 @@ export function ChatScreen({
 
     hasAutoSubmitted.current = true;
     setSelectedModelId(payload.modelId);
+    setSelectedReasoningModeId(payload.reasoningModeId ?? "");
     void sendMessage(undefined, {
       body: {
         chatId,
         modelId: payload.modelId,
+        reasoningModeId: payload.reasoningModeId,
       },
     });
     void queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
@@ -167,6 +244,7 @@ export function ChatScreen({
         const createdChat = await createChatFromFirstMessage({
           data: {
             modelId: selectedModelId,
+            reasoningModeId: selectedReasoningModeId || undefined,
             text,
           },
         });
@@ -174,7 +252,12 @@ export function ChatScreen({
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(
             `${AUTO_SUBMIT_KEY_PREFIX}${createdChat.chatId}`,
-            JSON.stringify({ modelId: createdChat.modelId } satisfies AutoSubmitPayload),
+            JSON.stringify({
+              modelId: createdChat.modelId,
+              ...(createdChat.reasoningModeId
+                ? { reasoningModeId: createdChat.reasoningModeId }
+                : {}),
+            } satisfies AutoSubmitPayload),
           );
         }
 
@@ -205,13 +288,14 @@ export function ChatScreen({
         body: {
           chatId,
           modelId: selectedModelId || llmConfig?.defaultModelId,
+          reasoningModeId: selectedReasoningModeId || undefined,
         },
       },
     );
     await queryClient.invalidateQueries({ queryKey: creditLimitSummaryQueryKey });
   }
 
-  const selectedModel = llmConfig?.models.find((model) => model.id === selectedModelId);
+  const selectedModel = getSelectedModel(llmConfig, selectedModelId);
   const isSubmitDisabled = isCreatingChat || !selectedModelId || !llmConfig;
   const displayError = modelsError ?? submitError ?? error?.message;
   const isAssistantStreaming = status === "submitted" || status === "streaming";
@@ -324,7 +408,19 @@ export function ChatScreen({
                             key={model.id}
                             onSelect={() => {
                               setSelectedModelId(model.id);
+                              const nextReasoningModeId = getReasoningModeId({
+                                llmConfig,
+                                modelId: model.id,
+                                useSavedPreference: Boolean(chatId),
+                              });
+                              setSelectedReasoningModeId(nextReasoningModeId);
                               setIsModelSelectorOpen(false);
+                              void updateUserModelSettings({
+                                data: {
+                                  modelId: model.id,
+                                  reasoningModeId: nextReasoningModeId || undefined,
+                                },
+                              });
                             }}
                             value={model.displayName}
                           >
@@ -344,6 +440,36 @@ export function ChatScreen({
                   </ModelSelectorList>
                 </ModelSelectorContent>
               </ModelSelector>
+              {selectedModel?.reasoning && (
+                <PromptInputSelect
+                  disabled={!llmConfig}
+                  onValueChange={(modeId) => {
+                    setSelectedReasoningModeId(modeId);
+                    void updateUserModelSettings({
+                      data: {
+                        modelId: selectedModel.id,
+                        reasoningModeId: modeId,
+                      },
+                    });
+                  }}
+                  value={selectedReasoningModeId}
+                >
+                  <PromptInputSelectTrigger
+                    aria-label="Reasoning effort"
+                    className="h-8 max-w-44 gap-2"
+                  >
+                    <BrainIcon className="size-4 text-muted-foreground" />
+                    <PromptInputSelectValue placeholder="Reasoning" />
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent>
+                    {selectedModel.reasoning.modes.map((mode) => (
+                      <PromptInputSelectItem key={mode.id} value={mode.id}>
+                        {mode.label}
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
+              )}
             </PromptInputTools>
             <PromptInputSubmit disabled={isSubmitDisabled} onStop={stop} status={status} />
           </PromptInputFooter>

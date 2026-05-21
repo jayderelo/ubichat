@@ -11,14 +11,15 @@ export const Route = createFileRoute("/_authed/chats/$chatId")({
 });
 
 function ChatRoute() {
-  const { chat, llmConfig, messagesJson } = Route.useLoaderData();
+  const { chat, initialSelection, llmConfig, messagesJson } = Route.useLoaderData();
   const messages = JSON.parse(messagesJson) as UIMessage[];
 
   return (
     <ChatScreen
       chatId={chat.id}
       initialMessages={messages}
-      initialModelId={chat.modelId}
+      initialModelId={initialSelection?.modelId}
+      initialReasoningModeId={initialSelection?.reasoningModeId}
       llmConfig={llmConfig}
     />
   );

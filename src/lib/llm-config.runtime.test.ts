@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { LlmConfig } from "#/lib/llm-config.ts";
 
 const mocks = vi.hoisted(() => {
   const responses = vi.fn((model: string) => ({ model, provider: "azure-responses" }));
@@ -40,6 +41,10 @@ const validConfig = {
         tools: true,
         vision: false,
       },
+      reasoning: {
+        defaultModeId: "medium",
+        modes: [{ consumesReasoningTokens: true, id: "medium", label: "Medium" }],
+      },
       displayName: "GPT-5.4 Mini",
       id: "gpt-5.4-mini",
       lab: "openai",
@@ -66,6 +71,10 @@ const validConfig = {
         tools: false,
         vision: false,
       },
+      reasoning: {
+        defaultModeId: "high",
+        modes: [{ consumesReasoningTokens: true, id: "high", label: "High" }],
+      },
       displayName: "DeepSeek V4 Flash",
       id: "deepseek-v4-flash",
       lab: "deepseek",
@@ -83,7 +92,7 @@ const validConfig = {
       },
     },
   ],
-} as const;
+} satisfies LlmConfig;
 
 describe("llm config runtime helpers", () => {
   beforeEach(() => {
@@ -110,6 +119,10 @@ describe("llm config runtime helpers", () => {
           id: "gpt-5.4-mini",
           lab: "openai",
           provider: "azure-openai-responses",
+          reasoning: {
+            defaultModeId: "medium",
+            modes: [{ id: "medium", label: "Medium" }],
+          },
         },
         {
           capabilities: validConfig.models[1].capabilities,
@@ -117,6 +130,10 @@ describe("llm config runtime helpers", () => {
           id: "deepseek-v4-flash",
           lab: "deepseek",
           provider: "azure-foundry-chat",
+          reasoning: {
+            defaultModeId: "high",
+            modes: [{ id: "high", label: "High" }],
+          },
         },
       ],
     });

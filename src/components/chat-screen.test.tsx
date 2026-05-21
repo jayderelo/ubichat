@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   sendMessage: vi.fn(),
   stop: vi.fn(),
+  updateUserModelSettings: vi.fn(),
   useChat: vi.fn(),
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@ai-sdk/react", () => ({ useChat: mocks.useChat }));
 vi.mock("#/lib/chat-functions.ts", () => ({
   createChatFromFirstMessage: mocks.createChatFromFirstMessage,
   generateAndSaveChatTitle: mocks.generateAndSaveChatTitle,
+  updateUserModelSettings: mocks.updateUserModelSettings,
 }));
 
 vi.mock("#/lib/credit-limit-query.ts", () => ({
@@ -137,6 +139,53 @@ vi.mock("#/components/ai-elements/prompt-input", () => {
     PromptInput,
     PromptInputBody: ({ children }: React.PropsWithChildren) => <div>{children}</div>,
     PromptInputFooter: ({ children }: React.PropsWithChildren) => <footer>{children}</footer>,
+    PromptInputSelect: ({
+      children,
+      onValueChange,
+    }: React.PropsWithChildren<{ onValueChange?: (value: string) => void; value?: string }>) => (
+      <div data-testid="prompt-input-select">
+        {React.Children.map(children, (child) =>
+          React.isValidElement(child)
+            ? React.cloneElement(
+                child as React.ReactElement<{ onValueChange?: (value: string) => void }>,
+                { onValueChange },
+              )
+            : child,
+        )}
+      </div>
+    ),
+    PromptInputSelectContent: ({
+      children,
+      onValueChange,
+    }: React.PropsWithChildren<{ onValueChange?: (value: string) => void }>) => (
+      <div>
+        {React.Children.map(children, (child) =>
+          React.isValidElement(child)
+            ? React.cloneElement(
+                child as React.ReactElement<{ onValueChange?: (value: string) => void }>,
+                { onValueChange },
+              )
+            : child,
+        )}
+      </div>
+    ),
+    PromptInputSelectItem: ({
+      children,
+      onValueChange,
+      value,
+    }: React.PropsWithChildren<{ onValueChange?: (value: string) => void; value: string }>) => (
+      <button onClick={() => onValueChange?.(value)} role="option" type="button" value={value}>
+        {children}
+      </button>
+    ),
+    PromptInputSelectTrigger: ({ children }: React.PropsWithChildren) => (
+      <button aria-label="Reasoning effort" type="button">
+        {children}
+      </button>
+    ),
+    PromptInputSelectValue: ({ placeholder }: { placeholder?: string }) => (
+      <span>{placeholder}</span>
+    ),
     PromptInputSubmit: ({
       disabled,
       onStop,
@@ -198,6 +247,7 @@ describe("ChatScreen", () => {
       chatId,
       messageId: "message-1",
       modelId: "model-default",
+      reasoningModeId: null,
     });
     mocks.generateAndSaveChatTitle.mockResolvedValue({ title: "Generated title" });
   });
@@ -264,6 +314,7 @@ describe("ChatScreen", () => {
       chatId,
       messageId: "message-1",
       modelId: "model-other",
+      reasoningModeId: "high",
     });
 
     render(<ChatScreen llmConfig={createPublicLlmConfig()} />);
@@ -276,13 +327,41 @@ describe("ChatScreen", () => {
       expect(mocks.createChatFromFirstMessage).toHaveBeenCalledWith({
         data: {
           modelId: "model-other",
+          reasoningModeId: "high",
           text: "Start a project plan",
         },
       });
     });
     expect(window.sessionStorage.getItem(`ubichat:auto-submit:${chatId}`)).toBe(
-      JSON.stringify({ modelId: "model-other" }),
+      JSON.stringify({ modelId: "model-other", reasoningModeId: "high" }),
     );
+  });
+
+  it("uses the configured reasoning default for new chats instead of saved reasoning preferences", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        llmConfig={createPublicLlmConfig({
+          userSettings: {
+            reasoningPreferences: { "model-other": "low" },
+            selectedModelId: "model-other",
+          },
+        })}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Prompt"), "Start a project plan");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mocks.createChatFromFirstMessage).toHaveBeenCalledWith({
+        data: {
+          modelId: "model-other",
+          reasoningModeId: "high",
+          text: "Start a project plan",
+        },
+      });
+    });
   });
 
   it("does not create a new chat for empty prompt text", async () => {
@@ -311,6 +390,7 @@ describe("ChatScreen", () => {
         body: {
           chatId,
           modelId: "model-other",
+          reasoningModeId: "high",
         },
       },
     );
@@ -343,6 +423,7 @@ describe("ChatScreen", () => {
         body: {
           chatId,
           modelId: "model-other",
+          reasoningModeId: "high",
         },
       },
     );

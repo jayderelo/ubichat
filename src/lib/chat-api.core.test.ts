@@ -81,7 +81,7 @@ function createDeps() {
     streamText: vi.fn(() => ({
       finishReason: Promise.resolve("stop"),
       toUIMessageStreamResponse: vi.fn(() => streamResponse),
-      totalUsage: Promise.resolve({
+    totalUsage: Promise.resolve({
         inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0, noCacheTokens: 4 },
         inputTokens: 4,
         outputTokenDetails: { reasoningTokens: 0, textTokens: 2 },
@@ -89,6 +89,7 @@ function createDeps() {
         totalTokens: 6,
       }),
     })),
+    upsertUserModelSettings: vi.fn(async () => undefined),
     validateUIMessages: vi.fn(
       async ({ messages }: { messages: unknown }) => messages as UIMessage[],
     ),
@@ -207,6 +208,8 @@ describe("chat API core", () => {
       messages: finishedMessages,
       modelConfig: createModelConfig("model-default"),
       modelId: "model-default",
+      reasoningModeId: undefined,
+      submittedUserMessageId: "message-1",
       usage: {
         inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0, noCacheTokens: 4 },
         inputTokens: 4,
@@ -237,6 +240,21 @@ describe("chat API core", () => {
           vision: false,
         },
         provider: "azure-openai-responses",
+        reasoning: {
+          defaultModeId: "medium",
+          modes: [
+            {
+              id: "medium",
+              label: "Medium",
+              providerOptions: {
+                azure: {
+                  reasoningEffort: "medium",
+                  reasoningSummary: "auto",
+                },
+              },
+            },
+          ],
+        },
       }),
     );
     const handlePost = createChatApiHandler(deps);
@@ -264,6 +282,20 @@ describe("chat API core", () => {
           responses: false,
           tools: false,
           vision: false,
+        },
+        reasoning: {
+          defaultModeId: "medium",
+          modes: [
+            {
+              id: "medium",
+              label: "Medium",
+              providerOptions: {
+                azureFoundry: {
+                  reasoningEffort: "medium",
+                },
+              },
+            },
+          ],
         },
       }),
     );

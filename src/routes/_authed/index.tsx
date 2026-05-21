@@ -1,17 +1,12 @@
 import { ChatScreen } from "#/components/chat-screen.tsx";
-import { getPublicLlmConfig } from "#/lib/llm-config.ts";
+import { loadNewChatRouteData } from "#/lib/chat-functions.ts";
 import { createFileRoute } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
-
-const loadPublicLlmConfig = createServerFn({ method: "GET" }).handler(async () => {
-  return await getPublicLlmConfig();
-});
 
 export const Route = createFileRoute("/_authed/")({
   loader: async () => {
     try {
       return {
-        llmConfig: await loadPublicLlmConfig(),
+        ...(await loadNewChatRouteData()),
         modelsError: null,
       };
     } catch {
