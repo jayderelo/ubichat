@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "dotenvx run -- vite dev --port 3000",
     "build": "vite build",
+    "start": "node .output/server/index.mjs",
     "preview": "dotenvx run -- vite preview",
     "prepare": "simple-git-hooks",
     "test": "vitest run",
