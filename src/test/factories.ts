@@ -35,6 +35,7 @@ export function createSession(overrides: Partial<SessionLike["user"]> = {}): Ses
       email: "jay@example.com",
       id: userId,
       image: null,
+      isAnonymous: false,
       name: "Jay",
       ...overrides,
     },

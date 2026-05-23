@@ -123,6 +123,7 @@ describe("chat actions core", () => {
       user: {
         avatar: "",
         email: "jay@example.com",
+        isAnonymous: false,
         name: "Jay",
       },
     });

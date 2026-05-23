@@ -9,7 +9,7 @@ import {
 } from "#/components/ui/breadcrumb";
 import { Separator } from "#/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "#/components/ui/sidebar";
-import { getSession } from "#/lib/auth-functions.ts";
+import { getAnonymousAuthEnabled, getSession } from "#/lib/auth-functions.ts";
 import { loadAuthedLayoutData } from "#/lib/chat-functions.ts";
 import { createFileRoute, Link, Outlet, redirect, useLocation } from "@tanstack/react-router";
 
@@ -22,13 +22,21 @@ export const Route = createFileRoute("/_authed")({
     }
   },
   loader: async () => {
-    return await loadAuthedLayoutData();
+    const [layoutData, enableAnonymousAuth] = await Promise.all([
+      loadAuthedLayoutData(),
+      getAnonymousAuthEnabled(),
+    ]);
+
+    return {
+      ...layoutData,
+      enableAnonymousAuth,
+    };
   },
   component: AuthedLayout,
 });
 
 function AuthedLayout() {
-  const { archivedChats, chats, user } = Route.useLoaderData();
+  const { archivedChats, chats, enableAnonymousAuth, user } = Route.useLoaderData();
   const location = useLocation();
   const currentChatId = /^\/chats\/([^/]+)$/.exec(location.pathname)?.[1];
   const currentChat = currentChatId
@@ -37,7 +45,12 @@ function AuthedLayout() {
 
   return (
     <SidebarProvider>
-      <AppSidebar archivedChats={archivedChats} chats={chats} user={user} />
+        <AppSidebar
+          archivedChats={archivedChats}
+          chats={chats}
+          enableAnonymousAuth={enableAnonymousAuth}
+          user={user}
+        />
       <SidebarInset className="h-svh min-h-0 overflow-hidden">
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-10">
           <div className="flex min-w-0 items-center gap-2.5 px-3">

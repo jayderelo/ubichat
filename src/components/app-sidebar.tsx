@@ -26,16 +26,24 @@ type SidebarChat = {
 type SidebarUser = {
   avatar: string;
   email: string;
+  isAnonymous: boolean;
   name: string;
 };
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   archivedChats: SidebarChat[];
   chats: SidebarChat[];
+  enableAnonymousAuth: boolean;
   user: SidebarUser;
 };
 
-export function AppSidebar({ archivedChats, chats, user, ...props }: AppSidebarProps) {
+export function AppSidebar({
+  archivedChats,
+  chats,
+  enableAnonymousAuth,
+  user,
+  ...props
+}: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -69,7 +77,7 @@ export function AppSidebar({ archivedChats, chats, user, ...props }: AppSidebarP
         <NavChats archivedChats={archivedChats} chats={chats} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser enableAnonymousAuth={enableAnonymousAuth} user={user} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>

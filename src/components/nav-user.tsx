@@ -19,25 +19,45 @@ import {
 import { authClient } from "#/lib/auth-client.ts";
 import { creditLimitSummaryQueryOptions } from "#/lib/credit-limit-query.ts";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { ChevronsUpDownIcon, LogOutIcon, RefreshCwIcon } from "lucide-react";
+import { ChevronsUpDownIcon, LogInIcon, LogOutIcon, RefreshCwIcon } from "lucide-react";
 import { Suspense, useState } from "react";
 import { useNavigate, useRouter } from "@tanstack/react-router";
+
+type OAuthProvider = "github" | "google";
 
 const creditNumberFormatter = new Intl.NumberFormat("en-US");
 
 export function NavUser({
+  enableAnonymousAuth,
   user,
 }: {
+  enableAnonymousAuth: boolean;
   user: {
     name: string;
     email: string;
     avatar: string;
+    isAnonymous: boolean;
   };
 }) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
   const router = useRouter();
+  const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function signIn(provider: OAuthProvider) {
+    setPendingProvider(provider);
+
+    const { error } = await authClient.signIn.social({
+      provider,
+      callbackURL: "/",
+      errorCallbackURL: "/",
+    });
+
+    if (error) {
+      setPendingProvider(null);
+    }
+  }
 
   async function signOut() {
     setIsSigningOut(true);
@@ -96,6 +116,25 @@ export function NavUser({
               <CreditLimitSummary />
             </Suspense>
             <DropdownMenuSeparator />
+            {enableAnonymousAuth && user.isAnonymous ? (
+              <>
+                <DropdownMenuItem
+                  disabled={pendingProvider !== null}
+                  onSelect={() => void signIn("google")}
+                >
+                  <LogInIcon />
+                  {pendingProvider === "google" ? "Opening Google..." : "Sign in with Google"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={pendingProvider !== null}
+                  onSelect={() => void signIn("github")}
+                >
+                  <LogInIcon />
+                  {pendingProvider === "github" ? "Opening GitHub..." : "Sign in with GitHub"}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuItem disabled={isSigningOut} onSelect={() => void signOut()}>
               <LogOutIcon />
               {isSigningOut ? "Logging out..." : "Log out"}

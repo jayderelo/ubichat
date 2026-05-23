@@ -32,6 +32,7 @@ export type SessionLike = {
     email: string;
     id: string;
     image?: string | null;
+    isAnonymous?: boolean | null;
     name: string;
   };
 };
@@ -231,6 +232,7 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
         user: {
           avatar: session.user.image ?? "",
           email: session.user.email,
+          isAnonymous: Boolean(session.user.isAnonymous),
           name: session.user.name,
         },
       };

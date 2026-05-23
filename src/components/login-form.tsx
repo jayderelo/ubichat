@@ -10,14 +10,22 @@ import {
 } from "#/components/ui/card.tsx";
 import { Field, FieldDescription, FieldGroup } from "#/components/ui/field.tsx";
 import { authClient } from "#/lib/auth-client.ts";
+import { useNavigate, useRouter } from "@tanstack/react-router";
 
 type OAuthProvider = "github" | "google";
+type PendingProvider = OAuthProvider | "anonymous";
 
 const callbackURL = "/";
 const errorCallbackURL = "/login";
 
-export function LoginForm({ className, ...props }: React.ComponentProps<"div">) {
-  const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(null);
+type LoginFormProps = React.ComponentProps<"div"> & {
+  enableAnonymousAuth: boolean;
+};
+
+export function LoginForm({ className, enableAnonymousAuth, ...props }: LoginFormProps) {
+  const navigate = useNavigate();
+  const router = useRouter();
+  const [pendingProvider, setPendingProvider] = useState<PendingProvider | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function signIn(provider: OAuthProvider) {
@@ -36,6 +44,22 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
     }
   }
 
+  async function signInAnonymously() {
+    setPendingProvider("anonymous");
+    setError(null);
+
+    const { error } = await authClient.signIn.anonymous();
+
+    if (error) {
+      setError(error.message ?? "Unable to continue as guest. Please try again.");
+      setPendingProvider(null);
+      return;
+    }
+
+    await router.invalidate();
+    await navigate({ to: "/" });
+  }
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
@@ -46,6 +70,15 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
         <CardContent>
           <FieldGroup>
             <Field>
+              {enableAnonymousAuth ? (
+                <Button
+                  type="button"
+                  disabled={pendingProvider !== null}
+                  onClick={() => void signInAnonymously()}
+                >
+                  {pendingProvider === "anonymous" ? "Opening guest session..." : "Continue as guest"}
+                </Button>
+              ) : null}
               <Button
                 variant="outline"
                 type="button"

@@ -122,6 +122,8 @@ npx shadcn@latest add <component>
   - `GITHUB_CLIENT_SECRET`
   - `GOOGLE_CLIENT_ID`
   - `GOOGLE_CLIENT_SECRET`
+- Optional auth feature flags currently include:
+  - `FLAG_ENABLE_ANONYMOUS_AUTH` - set to `true` to enable Better Auth anonymous guest sign-in in dev.
 - Do not commit secrets or add real secret values to examples.
 - After changing Better Auth plugins, auth schema, or database tables, regenerate or push schema intentionally with Drizzle/Better Auth tooling as appropriate.
 - Keep auth checks on the server for protected data access. Client checks are for UX only.
@@ -138,6 +140,7 @@ npx shadcn@latest add <component>
 
 - Put tests near the code they verify or in the existing project test convention when one emerges.
 - Use Vitest and Testing Library for React behavior.
+- When browser-testing the app with `FLAG_ENABLE_ANONYMOUS_AUTH=true`, use the login page's anonymous guest sign-in to enter the app unless the test specifically covers OAuth or account linking.
 - For AI/provider code, mock network/provider calls. Do not make tests depend on live model APIs.
 - For database code, prefer isolated tests with a test database or mock at the repository boundary.
 - Run formatting with `npm run fmt` only when useful; avoid formatting unrelated files.
