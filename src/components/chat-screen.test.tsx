@@ -183,8 +183,11 @@ vi.mock("#/components/ai-elements/prompt-input", () => {
         {children}
       </button>
     ),
-    PromptInputSelectValue: ({ placeholder }: { placeholder?: string }) => (
-      <span>{placeholder}</span>
+    PromptInputSelectValue: ({
+      children,
+      placeholder,
+    }: React.PropsWithChildren<{ placeholder?: string }>) => (
+      <span>{children ?? placeholder}</span>
     ),
     PromptInputSubmit: ({
       disabled,
@@ -337,7 +340,7 @@ describe("ChatScreen", () => {
     );
   });
 
-  it("uses the configured reasoning default for new chats instead of saved reasoning preferences", async () => {
+  it("uses high reasoning for new chats instead of saved reasoning preferences", async () => {
     const user = userEvent.setup();
     render(
       <ChatScreen
@@ -361,6 +364,115 @@ describe("ChatScreen", () => {
           text: "Start a project plan",
         },
       });
+    });
+  });
+
+  it("uses a saved reasoning preference when switching models", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        llmConfig={createPublicLlmConfig({
+          userSettings: {
+            reasoningPreferences: { "model-other": "low" },
+            selectedModelId: "model-default",
+          },
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("option", { name: /Other Model/ }));
+
+    expect(screen.getByRole("button", { name: "Reasoning effort" })).toHaveTextContent("Low");
+
+    await user.type(screen.getByLabelText("Prompt"), "Start a project plan");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mocks.createChatFromFirstMessage).toHaveBeenCalledWith({
+        data: {
+          modelId: "model-other",
+          reasoningModeId: "low",
+          text: "Start a project plan",
+        },
+      });
+    });
+    expect(mocks.updateUserModelSettings).toHaveBeenCalledWith({
+      data: {
+        modelId: "model-other",
+        reasoningModeId: "low",
+      },
+    });
+  });
+
+  it("falls back to high reasoning when a switched model preference is hidden", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        llmConfig={createPublicLlmConfig({
+          models: [
+            {
+              capabilities: {
+                chatCompletions: true,
+                reasoning: false,
+                responses: false,
+                tools: false,
+                vision: false,
+              },
+              displayName: "Default Model",
+              id: "model-default",
+              lab: "deepseek",
+              provider: "azure-foundry-chat",
+            },
+            {
+              capabilities: {
+                chatCompletions: true,
+                reasoning: true,
+                responses: false,
+                tools: false,
+                vision: false,
+              },
+              displayName: "Other Model",
+              id: "model-other",
+              lab: "deepseek",
+              provider: "azure-foundry-chat",
+              reasoning: {
+                defaultModeId: "max",
+                modes: [
+                  { id: "high", label: "Medium" },
+                  { id: "max", label: "High" },
+                ],
+              },
+            },
+          ],
+          userSettings: {
+            reasoningPreferences: { "model-other": "off" },
+            selectedModelId: "model-default",
+          },
+        })}
+      />,
+    );
+
+    await user.click(screen.getByRole("option", { name: /Other Model/ }));
+
+    expect(screen.getByRole("button", { name: "Reasoning effort" })).toHaveTextContent("High");
+
+    await user.type(screen.getByLabelText("Prompt"), "Start a project plan");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(mocks.createChatFromFirstMessage).toHaveBeenCalledWith({
+        data: {
+          modelId: "model-other",
+          reasoningModeId: "max",
+          text: "Start a project plan",
+        },
+      });
+    });
+    expect(mocks.updateUserModelSettings).toHaveBeenCalledWith({
+      data: {
+        modelId: "model-other",
+        reasoningModeId: "max",
+      },
     });
   });
 
@@ -427,6 +539,75 @@ describe("ChatScreen", () => {
         },
       },
     );
+  });
+
+  it("uses an existing chat reasoning selection before saved preferences", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        chatId={chatId}
+        initialModelId="model-other"
+        initialReasoningModeId="medium"
+        llmConfig={createPublicLlmConfig({
+          userSettings: {
+            reasoningPreferences: { "model-other": "high" },
+            selectedModelId: "model-other",
+          },
+        })}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Prompt"), "Continue");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(
+      {
+        files: [],
+        text: "Continue",
+      },
+      {
+        body: {
+          chatId,
+          modelId: "model-other",
+          reasoningModeId: "medium",
+        },
+      },
+    );
+  });
+
+  it("clears reasoning when switching to a non-reasoning model", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatScreen
+        chatId={chatId}
+        initialModelId="model-other"
+        llmConfig={createPublicLlmConfig()}
+      />,
+    );
+
+    await user.click(screen.getByRole("option", { name: /Default Model/ }));
+    await user.type(screen.getByLabelText("Prompt"), "Continue");
+    await user.click(screen.getByRole("button", { name: "Submit" }));
+
+    expect(mocks.sendMessage).toHaveBeenCalledWith(
+      {
+        files: [],
+        text: "Continue",
+      },
+      {
+        body: {
+          chatId,
+          modelId: "model-default",
+          reasoningModeId: undefined,
+        },
+      },
+    );
+    expect(mocks.updateUserModelSettings).toHaveBeenCalledWith({
+      data: {
+        modelId: "model-default",
+        reasoningModeId: undefined,
+      },
+    });
   });
 
   it("renders reasoning parts from assistant messages", () => {

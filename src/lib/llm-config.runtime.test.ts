@@ -46,8 +46,12 @@ const validConfig = {
         vision: false,
       },
       reasoning: {
-        defaultModeId: "medium",
-        modes: [{ consumesReasoningTokens: true, id: "medium", label: "Medium" }],
+        defaultModeId: "high",
+        modes: [
+          { id: "low", label: "Low" },
+          { consumesReasoningTokens: true, id: "medium", label: "Medium" },
+          { id: "high", label: "High" },
+        ],
       },
       displayName: "GPT-5.4 Mini",
       id: "gpt-5.4-mini",
@@ -76,8 +80,13 @@ const validConfig = {
         vision: false,
       },
       reasoning: {
-        defaultModeId: "thinking-1k",
+        defaultModeId: "off",
         modes: [
+          {
+            consumesReasoningTokens: false,
+            id: "off",
+            label: "Thinking off",
+          },
           {
             id: "thinking-1k",
             label: "Thinking 1K",
@@ -90,6 +99,16 @@ const validConfig = {
               },
             },
             reserveReasoningTokens: 1024,
+          },
+          {
+            id: "thinking-2k",
+            label: "Thinking 2K",
+            reserveReasoningTokens: 2048,
+          },
+          {
+            id: "thinking-3k",
+            label: "Thinking 3K",
+            reserveReasoningTokens: 3072,
           },
         ],
       },
@@ -120,8 +139,12 @@ const validConfig = {
         vision: false,
       },
       reasoning: {
-        defaultModeId: "high",
-        modes: [{ consumesReasoningTokens: true, id: "high", label: "High" }],
+        defaultModeId: "max",
+        modes: [
+          { consumesReasoningTokens: false, id: "non-think", label: "Non-think" },
+          { consumesReasoningTokens: true, id: "high", label: "High" },
+          { id: "max", label: "Max" },
+        ],
       },
       displayName: "DeepSeek V4 Flash",
       id: "deepseek-v4-flash",
@@ -170,8 +193,12 @@ describe("llm config runtime helpers", () => {
           lab: "openai",
           provider: "azure-openai-responses",
           reasoning: {
-            defaultModeId: "medium",
-            modes: [{ id: "medium", label: "Medium" }],
+            defaultModeId: "high",
+            modes: [
+              { id: "low", label: "Low" },
+              { id: "medium", label: "Medium" },
+              { id: "high", label: "High" },
+            ],
           },
         },
         {
@@ -181,8 +208,12 @@ describe("llm config runtime helpers", () => {
           lab: "anthropic",
           provider: "azure-foundry-anthropic",
           reasoning: {
-            defaultModeId: "thinking-1k",
-            modes: [{ id: "thinking-1k", label: "Thinking 1K" }],
+            defaultModeId: "thinking-3k",
+            modes: [
+              { id: "thinking-1k", label: "Low" },
+              { id: "thinking-2k", label: "Medium" },
+              { id: "thinking-3k", label: "High" },
+            ],
           },
         },
         {
@@ -192,8 +223,12 @@ describe("llm config runtime helpers", () => {
           lab: "deepseek",
           provider: "azure-foundry-chat",
           reasoning: {
-            defaultModeId: "high",
-            modes: [{ id: "high", label: "High" }],
+            defaultModeId: "max",
+            modes: [
+              { id: "non-think", label: "Low" },
+              { id: "high", label: "Medium" },
+              { id: "max", label: "High" },
+            ],
           },
         },
       ],

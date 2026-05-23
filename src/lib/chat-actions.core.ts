@@ -258,13 +258,22 @@ export function createChatActionsCore(deps: ChatActionsDeps) {
         throw deps.notFound();
       }
 
-      return {
-        chat: serializeChatSummary(existingChat),
-        initialSelection: await deps.getLatestUserMessageSelection({
+      const [initialSelection, llmConfig, userSettings] = await Promise.all([
+        deps.getLatestUserMessageSelection({
           chatId: data.chatId,
           userId: session.user.id,
         }),
-        llmConfig: await deps.getPublicLlmConfig(),
+        deps.getPublicLlmConfig(),
+        deps.getUserModelSettings(session.user.id),
+      ]);
+
+      return {
+        chat: serializeChatSummary(existingChat),
+        initialSelection,
+        llmConfig: {
+          ...llmConfig,
+          userSettings,
+        },
         messagesJson: JSON.stringify(messages),
       };
     },

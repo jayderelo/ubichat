@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseLlmConfig } from "#/lib/llm-config.ts";
+import { createPublicReasoningConfig, parseLlmConfig } from "#/lib/llm-config.ts";
 
 const usage = {
   cacheReadCreditWeight: 0.25,
@@ -185,5 +185,117 @@ describe("parseLlmConfig", () => {
         ],
       }),
     ).toThrow();
+  });
+});
+
+describe("createPublicReasoningConfig", () => {
+  function publicReasoningFor(reasoning: unknown) {
+    const [model] = parseLlmConfig({
+      ...validConfig,
+      models: [
+        {
+          ...validConfig.models[0],
+          reasoning,
+        },
+      ],
+      titleModelId: validConfig.models[0].id,
+    }).models;
+
+    if (!model.reasoning) {
+      throw new Error("Expected reasoning config.");
+    }
+
+    return createPublicReasoningConfig(model.reasoning);
+  }
+
+  it("keeps low, medium, and high as canonical public labels", () => {
+    expect(
+      publicReasoningFor({
+        defaultModeId: "high",
+        modes: [
+          { id: "low", label: "Provider low" },
+          { id: "medium", label: "Provider medium" },
+          { id: "high", label: "Provider high" },
+        ],
+      }),
+    ).toEqual({
+      defaultModeId: "high",
+      modes: [
+        { id: "low", label: "Low" },
+        { id: "medium", label: "Medium" },
+        { id: "high", label: "High" },
+      ],
+    });
+  });
+
+  it("maps off plus ordered thinking budgets to low, medium, and high", () => {
+    expect(
+      publicReasoningFor({
+        defaultModeId: "off",
+        modes: [
+          {
+            consumesReasoningTokens: false,
+            id: "off",
+            label: "Thinking off",
+          },
+          { id: "thinking-1k", label: "Thinking 1K" },
+          { id: "thinking-2k", label: "Thinking 2K" },
+          { id: "thinking-3k", label: "Thinking 3K" },
+        ],
+      }),
+    ).toEqual({
+      defaultModeId: "thinking-3k",
+      modes: [
+        { id: "thinking-1k", label: "Low" },
+        { id: "thinking-2k", label: "Medium" },
+        { id: "thinking-3k", label: "High" },
+      ],
+    });
+  });
+
+  it("maps on and off only models to low and high", () => {
+    expect(
+      publicReasoningFor({
+        defaultModeId: "on",
+        modes: [
+          { id: "on", label: "Thinking on" },
+          {
+            consumesReasoningTokens: false,
+            id: "off",
+            label: "Thinking off",
+          },
+        ],
+      }),
+    ).toEqual({
+      defaultModeId: "on",
+      modes: [
+        { id: "off", label: "Low" },
+        { id: "on", label: "High" },
+      ],
+    });
+  });
+
+  it("maps non-think plus two stronger modes to low, medium, and high", () => {
+    expect(
+      publicReasoningFor({
+        defaultModeId: "max",
+        modes: [
+          {
+            consumesReasoningTokens: false,
+            id: "non-think",
+            label: "Non-think",
+          },
+          { id: "high", label: "High" },
+          { id: "max", label: "Max" },
+        ],
+      }),
+    ).toEqual({
+      defaultModeId: "max",
+      modes: [
+        { id: "non-think", label: "Low" },
+        { id: "high", label: "Medium" },
+        { id: "max", label: "High" },
+      ],
+    });
   });
 });

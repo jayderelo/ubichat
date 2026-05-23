@@ -132,6 +132,8 @@ const llmConfigSchema = z
 
 type LlmConfig = z.infer<typeof llmConfigSchema>;
 type LlmModelConfig = LlmConfig["models"][number];
+type ReasoningConfig = NonNullable<LlmModelConfig["reasoning"]>;
+type ReasoningModeConfig = ReasoningConfig["modes"][number];
 
 let cachedConfig: LlmConfig | undefined;
 
@@ -150,6 +152,66 @@ export async function getLlmConfig() {
   return cachedConfig;
 }
 
+function isOffLikeReasoningMode(mode: ReasoningModeConfig) {
+  const id = mode.id.toLowerCase();
+  return id === "off" || (id !== "non-think" && mode.consumesReasoningTokens === false);
+}
+
+function isOnReasoningMode(mode: ReasoningModeConfig) {
+  return mode.id.toLowerCase() === "on";
+}
+
+function getRepresentativeReasoningModes(modes: ReasoningModeConfig[]) {
+  if (modes.length <= 3) {
+    return modes;
+  }
+
+  return [modes[0], modes[Math.floor((modes.length - 1) / 2)], modes.at(-1)].filter(
+    (mode): mode is ReasoningModeConfig => Boolean(mode),
+  );
+}
+
+function getReasoningLabels(count: number) {
+  if (count === 1) {
+    return ["High"];
+  }
+
+  if (count === 2) {
+    return ["Medium", "High"];
+  }
+
+  return ["Low", "Medium", "High"];
+}
+
+export function createPublicReasoningConfig(reasoning: ReasoningConfig) {
+  const offModes = reasoning.modes.filter(isOffLikeReasoningMode);
+  const onModes = reasoning.modes.filter(isOnReasoningMode);
+  const mappedModes =
+    reasoning.modes.length === 2 && offModes.length === 1 && onModes.length === 1
+      ? [
+          { id: offModes[0].id, label: "Low" },
+          { id: onModes[0].id, label: "High" },
+        ]
+      : getRepresentativeReasoningModes(
+          reasoning.modes.filter((mode) => !isOffLikeReasoningMode(mode)),
+        ).map((mode, index, modes) => ({
+          id: mode.id,
+          label: getReasoningLabels(modes.length)[index] ?? "High",
+        }));
+
+  const visibleModes =
+    mappedModes.length > 0
+      ? mappedModes
+      : [{ id: reasoning.modes[0].id, label: "Low" }];
+  const isDefaultVisible = visibleModes.some((mode) => mode.id === reasoning.defaultModeId);
+  const strongestVisibleMode = visibleModes[visibleModes.length - 1];
+
+  return {
+    defaultModeId: isDefaultVisible ? reasoning.defaultModeId : strongestVisibleMode.id,
+    modes: visibleModes,
+  };
+}
+
 export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
   const config = await getLlmConfig();
 
@@ -161,12 +223,7 @@ export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
       id,
       lab,
       provider,
-      reasoning: reasoning
-        ? {
-            defaultModeId: reasoning.defaultModeId,
-            modes: reasoning.modes.map(({ id: modeId, label }) => ({ id: modeId, label })),
-          }
-        : undefined,
+      reasoning: reasoning ? createPublicReasoningConfig(reasoning) : undefined,
     })),
   };
 }

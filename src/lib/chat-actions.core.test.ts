@@ -179,7 +179,15 @@ describe("chat actions core", () => {
 
     expect(result.chat.title).toBe("Existing chat");
     expect(JSON.parse(result.messagesJson)).toEqual([createTextMessage({ text: "First prompt" })]);
-    expect(result.llmConfig).toEqual(createPublicLlmConfig());
+    expect(result.llmConfig).toEqual(
+      createPublicLlmConfig({
+        userSettings: {
+          reasoningPreferences: {},
+          selectedModelId: null,
+        },
+      }),
+    );
+    expect(deps.getUserModelSettings).toHaveBeenCalledWith(userId);
   });
 
   it("throws notFound when chat route ownership check fails", async () => {

@@ -66,6 +66,8 @@ type ChatScreenProps = {
   modelsError?: string | null;
 };
 
+type ReasoningSelectionIntent = "existing-chat-initial" | "initial-new-chat" | "model-switch";
+
 function getInitialSelectedModelId(
   llmConfig: PublicLlmConfig | null,
   initialModelId?: string | null,
@@ -92,16 +94,30 @@ function getSelectedModel(llmConfig: PublicLlmConfig | null, modelId: string) {
   return llmConfig?.models.find((model) => model.id === modelId);
 }
 
+function getStrongestVisibleReasoningModeId(
+  model: NonNullable<ReturnType<typeof getSelectedModel>>,
+) {
+  if (!model.reasoning) {
+    return "";
+  }
+
+  return (
+    model.reasoning.modes.find((mode) => mode.label === "High")?.id ??
+    model.reasoning.modes.at(-1)?.id ??
+    ""
+  );
+}
+
 function getReasoningModeId({
   initialReasoningModeId,
+  intent,
   llmConfig,
   modelId,
-  useSavedPreference = true,
 }: {
   initialReasoningModeId?: string | null;
+  intent: ReasoningSelectionIntent;
   llmConfig: PublicLlmConfig | null;
   modelId: string;
-  useSavedPreference?: boolean;
 }) {
   const model = getSelectedModel(llmConfig, modelId);
 
@@ -116,15 +132,16 @@ function getReasoningModeId({
     return initialReasoningModeId;
   }
 
-  const savedModeId = useSavedPreference
-    ? llmConfig?.userSettings?.reasoningPreferences[modelId]
-    : undefined;
+  const savedModeId =
+    intent === "existing-chat-initial" || intent === "model-switch"
+      ? llmConfig?.userSettings?.reasoningPreferences[modelId]
+      : undefined;
 
   if (savedModeId && model.reasoning.modes.some((mode) => mode.id === savedModeId)) {
     return savedModeId;
   }
 
-  return model.reasoning.defaultModeId;
+  return getStrongestVisibleReasoningModeId(model) || model.reasoning.defaultModeId;
 }
 
 function readAutoSubmitPayload(chatId: string) {
@@ -161,10 +178,10 @@ export function ChatScreen({
   );
   const [selectedReasoningModeId, setSelectedReasoningModeId] = useState(() =>
     getReasoningModeId({
+      intent: chatId ? "existing-chat-initial" : "initial-new-chat",
       initialReasoningModeId,
       llmConfig,
       modelId: getInitialSelectedModelId(llmConfig, initialModelId),
-      useSavedPreference: Boolean(chatId),
     }),
   );
   const [isModelSelectorOpen, setIsModelSelectorOpen] = useState(false);
@@ -186,10 +203,10 @@ export function ChatScreen({
     setSelectedModelId(nextModelId);
     setSelectedReasoningModeId(
       getReasoningModeId({
+        intent: chatId ? "existing-chat-initial" : "initial-new-chat",
         initialReasoningModeId,
         llmConfig,
         modelId: nextModelId,
-        useSavedPreference: Boolean(chatId),
       }),
     );
   }, [chatId, initialModelId, initialReasoningModeId, llmConfig]);
@@ -296,6 +313,9 @@ export function ChatScreen({
   }
 
   const selectedModel = getSelectedModel(llmConfig, selectedModelId);
+  const selectedReasoningMode = selectedModel?.reasoning?.modes.find(
+    (mode) => mode.id === selectedReasoningModeId,
+  );
   const isSubmitDisabled = isCreatingChat || !selectedModelId || !llmConfig;
   const displayError = modelsError ?? submitError ?? error?.message;
   const isAssistantStreaming = status === "submitted" || status === "streaming";
@@ -409,9 +429,9 @@ export function ChatScreen({
                             onSelect={() => {
                               setSelectedModelId(model.id);
                               const nextReasoningModeId = getReasoningModeId({
+                                intent: "model-switch",
                                 llmConfig,
                                 modelId: model.id,
-                                useSavedPreference: Boolean(chatId),
                               });
                               setSelectedReasoningModeId(nextReasoningModeId);
                               setIsModelSelectorOpen(false);
@@ -443,6 +463,7 @@ export function ChatScreen({
               {selectedModel?.reasoning && (
                 <PromptInputSelect
                   disabled={!llmConfig}
+                  key={selectedModel.id}
                   onValueChange={(modeId) => {
                     setSelectedReasoningModeId(modeId);
                     void updateUserModelSettings({
@@ -459,7 +480,9 @@ export function ChatScreen({
                     className="h-8 max-w-44 gap-2"
                   >
                     <BrainIcon className="size-4 text-muted-foreground" />
-                    <PromptInputSelectValue placeholder="Reasoning" />
+                    <PromptInputSelectValue placeholder="Reasoning">
+                      {selectedReasoningMode?.label}
+                    </PromptInputSelectValue>
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
                     {selectedModel.reasoning.modes.map((mode) => (
