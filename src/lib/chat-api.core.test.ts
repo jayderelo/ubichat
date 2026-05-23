@@ -81,7 +81,7 @@ function createDeps() {
     streamText: vi.fn(() => ({
       finishReason: Promise.resolve("stop"),
       toUIMessageStreamResponse: vi.fn(() => streamResponse),
-    totalUsage: Promise.resolve({
+      totalUsage: Promise.resolve({
         inputTokenDetails: { cacheReadTokens: 0, cacheWriteTokens: 0, noCacheTokens: 4 },
         inputTokens: 4,
         outputTokenDetails: { reasoningTokens: 0, textTokens: 2 },
@@ -259,7 +259,9 @@ describe("chat API core", () => {
     );
     const handlePost = createChatApiHandler(deps);
 
-    await handlePost(jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }));
+    await handlePost(
+      jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }),
+    );
 
     expect(deps.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -301,13 +303,67 @@ describe("chat API core", () => {
     );
     const handlePost = createChatApiHandler(deps);
 
-    await handlePost(jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }));
+    await handlePost(
+      jsonRequest({ chatId, messages: [createTextMessage()], modelId: "model-reasoning" }),
+    );
 
     expect(deps.streamText).toHaveBeenCalledWith(
       expect.objectContaining({
         providerOptions: {
           azureFoundry: {
             reasoningEffort: "medium",
+          },
+        },
+      }),
+    );
+  });
+
+  it("enables thinking for Azure Foundry Anthropic models", async () => {
+    deps.getLlmModelConfig.mockResolvedValue(
+      createModelConfig("claude-haiku-4-5", {
+        capabilities: {
+          chatCompletions: true,
+          reasoning: true,
+          responses: false,
+          tools: false,
+          vision: false,
+        },
+        lab: "anthropic",
+        provider: "azure-foundry-anthropic",
+        reasoning: {
+          defaultModeId: "thinking-1k",
+          modes: [
+            {
+              id: "thinking-1k",
+              label: "Thinking 1K",
+              providerOptions: {
+                anthropic: {
+                  thinking: {
+                    type: "enabled",
+                    budgetTokens: 1024,
+                  },
+                },
+              },
+              reserveReasoningTokens: 1024,
+            },
+          ],
+        },
+      }),
+    );
+    const handlePost = createChatApiHandler(deps);
+
+    await handlePost(
+      jsonRequest({ chatId, messages: [createTextMessage()], modelId: "claude-haiku-4-5" }),
+    );
+
+    expect(deps.streamText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerOptions: {
+          anthropic: {
+            thinking: {
+              type: "enabled",
+              budgetTokens: 1024,
+            },
           },
         },
       }),

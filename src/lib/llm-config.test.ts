@@ -55,6 +55,41 @@ const validConfig = {
       usage,
     },
     {
+      id: "claude-haiku-4-5",
+      displayName: "Claude Haiku 4.5",
+      lab: "anthropic",
+      provider: "azure-foundry-anthropic",
+      baseURL: "https://example.services.ai.azure.com/anthropic/v1",
+      apiVersion: "2023-06-01",
+      model: "claude-haiku-4-5",
+      capabilities: {
+        chatCompletions: true,
+        reasoning: true,
+        responses: false,
+        tools: false,
+        vision: false,
+      },
+      reasoning: {
+        defaultModeId: "thinking-1k",
+        modes: [
+          {
+            id: "thinking-1k",
+            label: "Thinking 1K",
+            providerOptions: {
+              anthropic: {
+                thinking: {
+                  type: "enabled",
+                  budgetTokens: 1024,
+                },
+              },
+            },
+            reserveReasoningTokens: 1024,
+          },
+        ],
+      },
+      usage,
+    },
+    {
       id: "deepseek-v4-flash",
       displayName: "DeepSeek V4 Flash",
       lab: "deepseek",

@@ -1,4 +1,5 @@
 import type { LanguageModel } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAzure } from "@ai-sdk/azure";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { readFile } from "node:fs/promises";
@@ -21,6 +22,7 @@ const reasoningModeSchema = z.object({
   label: z.string().min(1),
   consumesReasoningTokens: z.boolean().optional(),
   providerOptions: providerOptionsSchema.optional(),
+  reserveReasoningTokens: z.number().int().nonnegative().optional(),
 });
 
 const reasoningConfigSchema = z.object({
@@ -43,7 +45,7 @@ const modelConfigSchema = z.object({
   id: z.string().min(1),
   displayName: z.string().min(1),
   lab: z.string().min(1),
-  provider: z.enum(["azure-openai-responses", "azure-foundry-chat"]),
+  provider: z.enum(["azure-openai-responses", "azure-foundry-anthropic", "azure-foundry-chat"]),
   baseURL: z.string().url(),
   apiVersion: z.string().min(1),
   model: z.string().min(1),
@@ -153,19 +155,16 @@ export async function getPublicLlmConfig(): Promise<PublicLlmConfig> {
 
   return {
     defaultModelId: config.defaultModelId,
-    models: config.models.map(({ id, displayName, lab, provider, capabilities }) => ({
+    models: config.models.map(({ id, displayName, lab, provider, capabilities, reasoning }) => ({
       capabilities,
       displayName,
       id,
       lab,
       provider,
-          reasoning: config.models.find((model) => model.id === id)?.reasoning
+      reasoning: reasoning
         ? {
-            defaultModeId: config.models.find((model) => model.id === id)!.reasoning!
-              .defaultModeId,
-            modes: config.models
-              .find((model) => model.id === id)!
-              .reasoning!.modes.map(({ id: modeId, label }) => ({ id: modeId, label })),
+            defaultModeId: reasoning.defaultModeId,
+            modes: reasoning.modes.map(({ id: modeId, label }) => ({ id: modeId, label })),
           }
         : undefined,
     })),
@@ -205,9 +204,8 @@ function getAzureFoundryKey() {
 }
 
 export function createLanguageModel(config: LlmModelConfig): LanguageModel {
-  const apiKey = getAzureFoundryKey();
-
   if (config.provider === "azure-openai-responses") {
+    const apiKey = getAzureFoundryKey();
     const azure = createAzure({
       apiKey,
       apiVersion: config.apiVersion,
@@ -231,6 +229,17 @@ export function createLanguageModel(config: LlmModelConfig): LanguageModel {
     return azure.responses(config.model);
   }
 
+  if (config.provider === "azure-foundry-anthropic") {
+    const anthropic = createAnthropic({
+      apiKey: getAzureFoundryKey(),
+      baseURL: config.baseURL,
+      name: "azure-foundry-anthropic",
+    });
+
+    return anthropic.messages(config.model);
+  }
+
+  const apiKey = getAzureFoundryKey();
   const foundry = createOpenAICompatible({
     baseURL: config.baseURL,
     headers: { "api-key": apiKey },

@@ -1,4 +1,7 @@
-export type LlmProvider = "azure-openai-responses" | "azure-foundry-chat";
+export type LlmProvider =
+  | "azure-openai-responses"
+  | "azure-foundry-anthropic"
+  | "azure-foundry-chat";
 
 export type LlmModelCapabilities = {
   chatCompletions: boolean;

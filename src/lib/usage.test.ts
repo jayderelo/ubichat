@@ -55,6 +55,24 @@ describe("usage helpers", () => {
     expect(estimateReservedCredits([message], modelConfig)).toBe(54);
   });
 
+  it("reserves an exact configured reasoning budget when provided", () => {
+    expect(
+      estimateReservedCredits([message], {
+        ...modelConfig,
+        reasoning: {
+          defaultModeId: "thinking-1k",
+          modes: [
+            {
+              id: "thinking-1k",
+              label: "Thinking 1K",
+              reserveReasoningTokens: 2,
+            },
+          ],
+        },
+      }),
+    ).toBe(30);
+  });
+
   it("rejects non-text message parts", () => {
     expect(() =>
       assertTextOnlyMessages([

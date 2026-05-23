@@ -159,19 +159,27 @@ export function assertWithinModelInputLimit(messages: UIMessage[], modelConfig: 
   }
 }
 
-function modelConsumesReasoningTokens(
+function estimateReservedReasoningTokens(
   modelConfig: LlmModelConfig,
   reasoningModeId?: string | null,
 ) {
   if (!modelConfig.reasoning) {
-    return false;
+    return 0;
   }
 
   const mode = modelConfig.reasoning.modes.find(
     (candidate) => candidate.id === (reasoningModeId ?? modelConfig.reasoning?.defaultModeId),
   );
 
-  return mode?.consumesReasoningTokens ?? true;
+  if (!mode) {
+    return 0;
+  }
+
+  if (mode.consumesReasoningTokens === false) {
+    return 0;
+  }
+
+  return mode.reserveReasoningTokens ?? modelConfig.usage.maxOutputTokens;
 }
 
 export function estimateReservedCredits(
@@ -186,9 +194,7 @@ export function estimateReservedCredits(
       cacheWriteTokens: 0,
       inputTokens: estimatedInputTokens,
       outputTokens: modelConfig.usage.maxOutputTokens,
-      reasoningTokens: modelConsumesReasoningTokens(modelConfig, reasoningModeId)
-        ? modelConfig.usage.maxOutputTokens
-        : 0,
+      reasoningTokens: estimateReservedReasoningTokens(modelConfig, reasoningModeId),
     },
     modelConfig,
   );
@@ -303,9 +309,7 @@ export async function reserveUsage({
           cacheWriteTokens: 0,
           inputTokens: estimatedInputTokens,
           outputTokens: modelConfig.usage.maxOutputTokens,
-          reasoningTokens: modelConsumesReasoningTokens(modelConfig, reasoningModeId)
-            ? modelConfig.usage.maxOutputTokens
-            : 0,
+          reasoningTokens: estimateReservedReasoningTokens(modelConfig, reasoningModeId),
         },
         modelConfig,
       ) * modelConfig.usage.reserveMultiplier,

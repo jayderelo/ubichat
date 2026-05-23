@@ -21,6 +21,7 @@
     "db:generate": "dotenvx run -- drizzle-kit generate"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.79",
     "@ai-sdk/azure": "^3.0.64",
     "@ai-sdk/openai-compatible": "^2.0.47",
     "@ai-sdk/react": "^3.0.179",

@@ -64,6 +64,88 @@
       }
     },
     {
+      "id": "claude-haiku-4-5",
+      "displayName": "Claude Haiku 4.5",
+      "lab": "anthropic",
+      "provider": "azure-foundry-anthropic",
+      "baseURL": "https://jayve-mos393nj-swedencentral.services.ai.azure.com/anthropic/v1",
+      "apiVersion": "2023-06-01",
+      "model": "claude-haiku-4-5",
+      "capabilities": {
+        "chatCompletions": true,
+        "reasoning": true,
+        "responses": false,
+        "tools": false,
+        "vision": false
+      },
+      "reasoning": {
+        "defaultModeId": "off",
+        "modes": [
+          {
+            "id": "off",
+            "label": "Thinking off",
+            "consumesReasoningTokens": false,
+            "providerOptions": {
+              "anthropic": {
+                "thinking": {
+                  "type": "disabled"
+                }
+              }
+            }
+          },
+          {
+            "id": "thinking-1k",
+            "label": "Thinking 1K",
+            "providerOptions": {
+              "anthropic": {
+                "thinking": {
+                  "type": "enabled",
+                  "budgetTokens": 1024
+                }
+              }
+            },
+            "reserveReasoningTokens": 1024
+          },
+          {
+            "id": "thinking-2k",
+            "label": "Thinking 2K",
+            "providerOptions": {
+              "anthropic": {
+                "thinking": {
+                  "type": "enabled",
+                  "budgetTokens": 2048
+                }
+              }
+            },
+            "reserveReasoningTokens": 2048
+          },
+          {
+            "id": "thinking-3k",
+            "label": "Thinking 3K",
+            "providerOptions": {
+              "anthropic": {
+                "thinking": {
+                  "type": "enabled",
+                  "budgetTokens": 3072
+                }
+              }
+            },
+            "reserveReasoningTokens": 3072
+          }
+        ]
+      },
+      "usage": {
+        "cacheReadCreditWeight": 0.1,
+        "cacheWriteCreditWeight": 1.25,
+        "inputCreditWeight": 1,
+        "maxInputBytes": 600000,
+        "maxOutputTokens": 4096,
+        "outputCreditWeight": 5,
+        "reasoningCreditWeight": 5,
+        "reserveMultiplier": 1
+      }
+    },
+    {
       "id": "kimi-k2.6",
       "displayName": "Kimi K2.6",
       "lab": "moonshotai",
