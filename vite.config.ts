@@ -9,6 +9,16 @@ import { nitro } from "nitro/vite";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  optimizeDeps: {
+    include: [
+      "@better-fetch/fetch",
+      "@tanstack/router-core",
+      "@tanstack/router-core/ssr/client",
+      "defu",
+      "nanostores",
+      "seroval",
+    ],
+  },
   plugins: [
     devtools(),
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),

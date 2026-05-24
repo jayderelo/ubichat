@@ -38,6 +38,7 @@ export const Route = createFileRoute("/_authed")({
 function AuthedLayout() {
   const { archivedChats, chats, enableAnonymousAuth, user } = Route.useLoaderData();
   const location = useLocation();
+  const isVisualizePage = location.pathname === "/visualize";
   const currentChatId = /^\/chats\/([^/]+)$/.exec(location.pathname)?.[1];
   const currentChat = currentChatId
     ? [...chats, ...archivedChats].find((chat) => chat.id === currentChatId)
@@ -55,7 +56,7 @@ function AuthedLayout() {
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-10">
           <div className="flex min-w-0 items-center gap-2.5 px-3">
             <SidebarTrigger className="-ml-1" />
-            {currentChat ? (
+            {currentChat || isVisualizePage ? (
               <>
                 <Separator
                   orientation="vertical"
@@ -63,15 +64,19 @@ function AuthedLayout() {
                 />
                 <Breadcrumb className="min-w-0">
                   <BreadcrumbList className="flex-nowrap">
-                    <BreadcrumbItem>
-                      <BreadcrumbLink asChild>
-                        <Link to="/">Chats</Link>
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
+                    {!isVisualizePage && (
+                      <>
+                        <BreadcrumbItem>
+                          <BreadcrumbLink asChild>
+                            <Link to="/">Chats</Link>
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                      </>
+                    )}
                     <BreadcrumbItem className="min-w-0">
                       <BreadcrumbPage className="block max-w-[min(50vw,40rem)] truncate">
-                        {currentChat.title}
+                        {isVisualizePage ? "Visualize" : currentChat?.title}
                       </BreadcrumbPage>
                     </BreadcrumbItem>
                   </BreadcrumbList>

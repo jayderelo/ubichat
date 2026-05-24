@@ -13,7 +13,9 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as AuthedIndexRouteImport } from './routes/_authed/index'
+import { Route as ApiVisualizeRouteImport } from './routes/api/visualize'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as AuthedVisualizeRouteImport } from './routes/_authed/visualize'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedChatsChatIdRouteImport } from './routes/_authed/chats.$chatId'
 
@@ -36,10 +38,20 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const ApiVisualizeRoute = ApiVisualizeRouteImport.update({
+  id: '/api/visualize',
+  path: '/api/visualize',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedVisualizeRoute = AuthedVisualizeRouteImport.update({
+  id: '/visualize',
+  path: '/visualize',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -56,14 +68,18 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/visualize': typeof AuthedVisualizeRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/visualize': typeof ApiVisualizeRoute
   '/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/visualize': typeof AuthedVisualizeRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/visualize': typeof ApiVisualizeRoute
   '/': typeof AuthedIndexRoute
   '/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -73,7 +89,9 @@ export interface FileRoutesById {
   '/_authed': typeof AuthedRouteWithChildren
   '/chats': typeof ChatsRoute
   '/login': typeof LoginRoute
+  '/_authed/visualize': typeof AuthedVisualizeRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/visualize': typeof ApiVisualizeRoute
   '/_authed/': typeof AuthedIndexRoute
   '/_authed/chats/$chatId': typeof AuthedChatsChatIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -84,17 +102,29 @@ export interface FileRouteTypes {
     | '/'
     | '/chats'
     | '/login'
+    | '/visualize'
     | '/api/chat'
+    | '/api/visualize'
     | '/chats/$chatId'
     | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/chats' | '/login' | '/api/chat' | '/' | '/chats/$chatId' | '/api/auth/$'
+  to:
+    | '/chats'
+    | '/login'
+    | '/visualize'
+    | '/api/chat'
+    | '/api/visualize'
+    | '/'
+    | '/chats/$chatId'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/_authed'
     | '/chats'
     | '/login'
+    | '/_authed/visualize'
     | '/api/chat'
+    | '/api/visualize'
     | '/_authed/'
     | '/_authed/chats/$chatId'
     | '/api/auth/$'
@@ -105,6 +135,7 @@ export interface RootRouteChildren {
   ChatsRoute: typeof ChatsRoute
   LoginRoute: typeof LoginRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiVisualizeRoute: typeof ApiVisualizeRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -138,12 +169,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/api/visualize': {
+      id: '/api/visualize'
+      path: '/api/visualize'
+      fullPath: '/api/visualize'
+      preLoaderRoute: typeof ApiVisualizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
       fullPath: '/api/chat'
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/visualize': {
+      id: '/_authed/visualize'
+      path: '/visualize'
+      fullPath: '/visualize'
+      preLoaderRoute: typeof AuthedVisualizeRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -163,11 +208,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
+  AuthedVisualizeRoute: typeof AuthedVisualizeRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
   AuthedChatsChatIdRoute: typeof AuthedChatsChatIdRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedVisualizeRoute: AuthedVisualizeRoute,
   AuthedIndexRoute: AuthedIndexRoute,
   AuthedChatsChatIdRoute: AuthedChatsChatIdRoute,
 }
@@ -180,6 +227,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatsRoute: ChatsRoute,
   LoginRoute: LoginRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiVisualizeRoute: ApiVisualizeRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
