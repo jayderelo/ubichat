@@ -16,7 +16,7 @@ import {
   SidebarRail,
 } from "#/components/ui/sidebar.tsx";
 import { Link } from "@tanstack/react-router";
-import { EditIcon, MessageCircleIcon } from "lucide-react";
+import { ChartAreaIcon, EditIcon, MessageCircleIcon } from "lucide-react";
 
 type SidebarChat = {
   id: string;
@@ -70,6 +70,14 @@ export function AppSidebar({
               <Link to="/">
                 <EditIcon />
                 <span>New Chat</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Visualize">
+              <Link to="/visualize">
+                <ChartAreaIcon />
+                <span>Visualize</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

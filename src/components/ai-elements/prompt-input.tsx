@@ -1113,12 +1113,14 @@ export const PromptInputActionMenuItem = ({
 // are provided in opt-in modules (e.g., prompt-input-attachments).
 
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
+  idleIcon?: ReactNode;
   status?: ChatStatus;
   onStop?: () => void;
 };
 
 export const PromptInputSubmit = ({
   className,
+  idleIcon,
   variant = "default",
   size = "icon-sm",
   status,
@@ -1161,7 +1163,7 @@ export const PromptInputSubmit = ({
       variant={variant}
       {...props}
     >
-      {children ?? Icon}
+      {children ?? (status === "ready" || !status ? idleIcon ?? Icon : Icon)}
     </InputGroupButton>
   );
 };
