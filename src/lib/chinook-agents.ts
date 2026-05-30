@@ -1,5 +1,13 @@
-import { executeChinookSelectQuery, CHINOOK_SCHEMA_SUMMARY, chinookQueryResultSchema } from "#/lib/chinook-db.ts";
-import { visualizeChartSchema } from "#/lib/chinook-visualize-types.ts";
+import {
+  executeChinookSelectQuery,
+  CHINOOK_SCHEMA_SUMMARY,
+  chinookQueryResultSchema,
+} from "#/lib/chinook-db.ts";
+import {
+  visualizeChartSchema,
+  visualizeGraphToolOutputSchema,
+  type VisualizeNoData,
+} from "#/lib/chinook-visualize-types.ts";
 import {
   createAgentUIStreamResponse,
   Output,
@@ -87,7 +95,8 @@ function createFallbackChart(
   const numericColumns = getNumericColumns(sqlResult);
   const textColumns = getTextColumns(sqlResult);
   const yKeys = numericColumns.slice(0, 5);
-  const xKey = textColumns[0] ?? sqlResult.columns.find((column) => !yKeys.includes(column)) ?? null;
+  const xKey =
+    textColumns[0] ?? sqlResult.columns.find((column) => !yKeys.includes(column)) ?? null;
   const chartType =
     xKey && /date|month|year|time/i.test(xKey)
       ? "area"
@@ -120,6 +129,19 @@ function createFallbackChart(
     title: "Chinook Data",
     xKey,
     yKeys,
+  };
+}
+
+export function createNoDataGraphResult(
+  sqlResult: z.infer<typeof chinookQueryResultSchema>,
+): VisualizeNoData {
+  return {
+    description:
+      "The query completed successfully, but it did not return any rows to visualize. Try broadening the filters or asking for a different Chinook slice.",
+    kind: "no-data",
+    rowCount: 0,
+    sql: sqlResult.sql,
+    title: "No available data",
   };
 }
 
@@ -223,10 +245,14 @@ export function createVisualizeAgent({ model, providerOptions }: CreateVisualize
             .string()
             .describe("Short description of the chart to create from the latest SQL result."),
         }),
-        outputSchema: graphAgentOutputSchema,
+        outputSchema: visualizeGraphToolOutputSchema,
         execute: async ({ question }) => {
           if (!latestSqlResult) {
             throw new Error("No Chinook SQL result is available. Call extractChinookData first.");
+          }
+
+          if (latestSqlResult.rowCount === 0) {
+            return createNoDataGraphResult(latestSqlResult);
           }
 
           try {
@@ -263,7 +289,7 @@ export async function createVisualizeResponse({
 }: {
   messages: unknown[];
   model: LanguageModel;
-    providerOptions?: ConstructorParameters<typeof ToolLoopAgent>[0]["providerOptions"];
+  providerOptions?: ConstructorParameters<typeof ToolLoopAgent>[0]["providerOptions"];
   request: Request;
 }) {
   return await createAgentUIStreamResponse({

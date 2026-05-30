@@ -27,7 +27,7 @@ import {
   CardTitle,
 } from "#/components/ui/card.tsx";
 import { Separator } from "#/components/ui/separator.tsx";
-import { visualizeChartSchema } from "#/lib/chinook-visualize-types.ts";
+import { visualizeChartSchema, visualizeNoDataSchema } from "#/lib/chinook-visualize-types.ts";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, getToolName, isToolUIPart, type UIMessage } from "ai";
 import {
@@ -78,6 +78,10 @@ function VisualizeToolPart({ part }: { part: ToolPart }) {
     toolName === "buildChinookGraph" && part.state === "output-available"
       ? visualizeChartSchema.safeParse(part.output)
       : null;
+  const parsedNoData =
+    toolName === "buildChinookGraph" && part.state === "output-available"
+      ? visualizeNoDataSchema.safeParse(part.output)
+      : null;
 
   useEffect(() => {
     if (part.state === "output-available") {
@@ -116,6 +120,15 @@ function VisualizeToolPart({ part }: { part: ToolPart }) {
             <p className="text-muted-foreground text-sm">{parsedChart.data.description}</p>
           </div>
           <VisualizeChart chart={parsedChart.data} />
+        </div>
+      ) : null}
+      {parsedNoData?.success ? (
+        <div className="mb-2 flex items-start gap-3 rounded-md border bg-muted/30 p-3">
+          <DatabaseIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div className="min-w-0">
+            <h3 className="font-medium text-sm">{parsedNoData.data.title}</h3>
+            <p className="text-muted-foreground text-sm">{parsedNoData.data.description}</p>
+          </div>
         </div>
       ) : null}
     </>
