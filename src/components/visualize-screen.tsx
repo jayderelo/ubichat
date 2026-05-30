@@ -5,11 +5,13 @@ import { Message, MessageContent, MessageResponse } from "#/components/ai-elemen
 import {
   PromptInput,
   PromptInputBody,
+  PromptInputButton,
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
   type PromptInputMessage,
 } from "#/components/ai-elements/prompt-input";
+import { Shimmer } from "#/components/ai-elements/shimmer";
 import {
   Tool,
   ToolContent,
@@ -34,7 +36,7 @@ import {
   ArrowDownIcon,
   ChartAreaIcon,
   DatabaseIcon,
-  LoaderCircleIcon,
+  RotateCcwIcon,
   SendIcon,
   SparklesIcon,
   TriangleAlertIcon,
@@ -69,6 +71,58 @@ function getToolTitle(toolName: string) {
   }
 
   return toolName;
+}
+
+function getVisualizeActivity(messages: UIMessage[], status: string) {
+  if (status !== "submitted" && status !== "streaming") {
+    return null;
+  }
+
+  const latestMessage = messages.at(-1);
+
+  if (!latestMessage || latestMessage.role !== "assistant") {
+    return "Thinking...";
+  }
+
+  const latestPart = latestMessage.parts.at(-1);
+
+  if (!latestPart) {
+    return "Thinking...";
+  }
+
+  if (latestPart.type === "text") {
+    return latestPart.text.trim() ? null : "Thinking...";
+  }
+
+  if (!isToolUIPart(latestPart)) {
+    return null;
+  }
+
+  const toolTitle = getToolTitle(getToolName(latestPart));
+
+  if (latestPart.state === "output-available") {
+    return "Thinking...";
+  }
+
+  if (latestPart.state === "output-error" || latestPart.state === "output-denied") {
+    return null;
+  }
+
+  return `Running ${toolTitle}...`;
+}
+
+function VisualizeActivityIndicator({ label }: { label: string }) {
+  return (
+    <Message from="assistant">
+      <MessageContent>
+        <span aria-live="polite">
+          <Shimmer as="span" className="text-xs" duration={1}>
+            {label}
+          </Shimmer>
+        </span>
+      </MessageContent>
+    </Message>
+  );
 }
 
 function VisualizeToolPart({ part }: { part: ToolPart }) {
@@ -168,9 +222,13 @@ export function VisualizeScreen() {
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const transport = useMemo(() => new DefaultChatTransport({ api: "/api/visualize" }), []);
-  const { error, messages, sendMessage, status, stop } = useChat({ transport });
+  const { clearError, error, messages, sendMessage, setMessages, status, stop } = useChat({
+    transport,
+  });
   const displayError = submitError ?? error?.message;
   const isBusy = status === "submitted" || status === "streaming";
+  const activityLabel = getVisualizeActivity(messages, status);
+  const canReset = isBusy || messages.length > 0 || Boolean(displayError);
   const { contentRef, isAtBottom, scrollRef, scrollToBottom } = useStickToBottom({
     initial: "smooth",
     resize: "smooth",
@@ -201,6 +259,23 @@ export function VisualizeScreen() {
         caughtError instanceof Error ? caughtError.message : "Failed to send Visualize request.",
       );
       throw caughtError;
+    }
+  }
+
+  function handleReset() {
+    if (isBusy) {
+      stop();
+    }
+
+    setSubmitError(null);
+    clearError();
+    setMessages([]);
+
+    const prompt = promptRef.current;
+
+    if (prompt) {
+      prompt.value = "";
+      prompt.dispatchEvent(new Event("input", { bubbles: true }));
     }
   }
 
@@ -248,16 +323,7 @@ export function VisualizeScreen() {
               {messages.map((message) => (
                 <VisualizeMessage key={message.id} message={message} status={status} />
               ))}
-              {status === "submitted" && (
-                <Message from="assistant">
-                  <MessageContent>
-                    <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                      <LoaderCircleIcon className="size-4 animate-spin" />
-                      <span>Thinking...</span>
-                    </div>
-                  </MessageContent>
-                </Message>
-              )}
+              {activityLabel && <VisualizeActivityIndicator label={activityLabel} />}
               {displayError && (
                 <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
                   <TriangleAlertIcon className="size-4 shrink-0" />
@@ -287,11 +353,21 @@ export function VisualizeScreen() {
               />
             </PromptInputBody>
             <PromptInputFooter className="justify-end">
-              <PromptInputSubmit
-                idleIcon={<SendIcon className="size-4" />}
-                onStop={stop}
-                status={status}
-              />
+              <div className="flex items-center gap-1">
+                <PromptInputButton
+                  aria-label="Reset conversation"
+                  disabled={!canReset}
+                  onClick={handleReset}
+                  tooltip="Reset conversation"
+                >
+                  <RotateCcwIcon className="size-4" />
+                </PromptInputButton>
+                <PromptInputSubmit
+                  idleIcon={<SendIcon className="size-4" />}
+                  onStop={stop}
+                  status={status}
+                />
+              </div>
             </PromptInputFooter>
           </PromptInput>
         </div>
