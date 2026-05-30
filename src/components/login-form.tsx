@@ -76,7 +76,9 @@ export function LoginForm({ className, enableAnonymousAuth, ...props }: LoginFor
                   disabled={pendingProvider !== null}
                   onClick={() => void signInAnonymously()}
                 >
-                  {pendingProvider === "anonymous" ? "Opening guest session..." : "Continue as guest"}
+                  {pendingProvider === "anonymous"
+                    ? "Opening guest session..."
+                    : "Continue as guest"}
                 </Button>
               ) : null}
               <Button
@@ -91,7 +93,7 @@ export function LoginForm({ className, enableAnonymousAuth, ...props }: LoginFor
                     fill="currentColor"
                   />
                 </svg>
-                {pendingProvider === "google" ? "Opening Google..." : "Login with Google"}
+                {pendingProvider === "google" ? "Opening Google..." : "Login with Google (AWS)"}
               </Button>
               <Button
                 variant="outline"
@@ -105,7 +107,9 @@ export function LoginForm({ className, enableAnonymousAuth, ...props }: LoginFor
                     d="M12 .5a12 12 0 0 0-3.79 23.39c.6.11.82-.26.82-.58l-.02-2.23c-3.34.73-4.04-1.42-4.04-1.42-.55-1.39-1.34-1.76-1.34-1.76-1.09-.75.08-.73.08-.73 1.21.09 1.85 1.24 1.85 1.24 1.07 1.84 2.81 1.31 3.5 1 .11-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.13-.3-.54-1.52.12-3.18 0 0 1.01-.32 3.3 1.23a11.4 11.4 0 0 1 6.01 0c2.29-1.55 3.3-1.23 3.3-1.23.66 1.66.25 2.88.12 3.18.77.84 1.24 1.91 1.24 3.22 0 4.61-2.81 5.63-5.49 5.93.43.37.82 1.1.82 2.22l-.02 3.29c0 .32.22.7.83.58A12 12 0 0 0 12 .5Z"
                   />
                 </svg>
-                {pendingProvider === "github" ? "Opening GitHub..." : "Login with GitHub"}
+                {pendingProvider === "github"
+                  ? "Opening GitHub..."
+                  : "Login with GitHub (Personal)"}
               </Button>
             </Field>
             {error ? (

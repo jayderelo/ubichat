@@ -3,8 +3,7 @@ node_modules
 dist
 dist-ssr
 *.local
-.env
-.env.keys
+.env*
 .nitro
 .tanstack
 .wrangler
@@ -13,3 +12,4 @@ dist-ssr
 __unconfig*
 todos.json
 .codex/environments/*.toml
+deploy.zip
